@@ -1,11 +1,15 @@
 import numpy as np
-from jesse.indicators.roc import roc
+from jesse.indicators.roc import roc as jesse_roc
 
-def calculate_roc(candles: np.ndarray, period: int) -> dict:
-    roc_values = roc(candles, period=period, sequential=True)
-    clean_roc = roc_values[~np.isnan(roc_values)]
+def calculate_roc(candles: np.ndarray, period: int, source_type: str, sequential: bool):
+    result = jesse_roc(
+        candles=candles,
+        period=period,
+        source_type=source_type,
+        sequential=sequential
+    )
 
-    return {
-        "indicator": "roc",
-        "values": clean_roc.tolist()
-    }
+    if sequential:
+        return [None if np.isnan(x) else float(x) for x in result]
+    else:
+        return float(result)

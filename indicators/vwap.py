@@ -1,17 +1,15 @@
 import numpy as np
-from jesse.indicators.vwap import vwap
+from jesse.indicators.vwap import vwap as jesse_vwap
 
-def calculate_vwap(candles: np.ndarray) -> dict:
-    vwap_values = vwap(
-        candles,
-        source_type="hlc3",
-        anchor="D",
-        sequential=True
+def calculate_vwap(candles: np.ndarray, source_type: str, anchor: str, sequential: bool):
+    result = jesse_vwap(
+        candles=candles,
+        source_type=source_type,
+        anchor=anchor,
+        sequential=sequential
     )
 
-    clean_vwap = vwap_values[~np.isnan(vwap_values)]
-
-    return {
-        "indicator": "vwap",
-        "values": clean_vwap.tolist()
-    }
+    if sequential:
+        return [None if np.isnan(x) else float(x) for x in result]
+    else:
+        return float(result)

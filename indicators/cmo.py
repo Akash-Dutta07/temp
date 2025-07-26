@@ -1,11 +1,10 @@
 import numpy as np
-from jesse.indicators.cmo import cmo
+from jesse.indicators import cmo
 
-def calculate_cmo(candles: np.ndarray, period: int) -> dict:
-    cmo_values = cmo(candles, period=period, sequential=True)
-    clean_cmo = cmo_values[~np.isnan(cmo_values)]
-
-    return {
-        "indicator": "cmo",
-        "values": clean_cmo.tolist()
-    }
+def calculate_cmo(candles: np.ndarray, period: int = 14, source_type: str = "close") -> np.ndarray:
+    return cmo(
+        candles,
+        period=period,
+        source_type=source_type,
+        sequential=True
+    )

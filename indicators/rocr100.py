@@ -1,8 +1,8 @@
 import numpy as np
-from jesse.indicators.sma import sma as jesse_sma
+from jesse.indicators.rocr100 import rocr100 as jesse_rocr100
 
-def calculate_sma(candles: np.ndarray, period: int, source_type: str, sequential: bool):
-    result = jesse_sma(
+def calculate_rocr100(candles: np.ndarray, period: int, source_type: str, sequential: bool):
+    result = jesse_rocr100(
         candles=candles,
         period=period,
         source_type=source_type,

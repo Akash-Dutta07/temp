@@ -1,18 +1,18 @@
 import numpy as np
-from jesse.indicators.ppo import ppo as jesse_ppo
+from jesse.indicators.rvi import rvi as jesse_rvi
 
-def calculate_ppo(candles: np.ndarray, fast_period: int, slow_period: int, matype: int,
+def calculate_rvi(candles: np.ndarray, period: int, ma_len: int, matype: int, devtype: int,
                   source_type: str, sequential: bool):
-    result = jesse_ppo(
+    result = jesse_rvi(
         candles=candles,
-        fast_period=fast_period,
-        slow_period=slow_period,
+        period=period,
+        ma_len=ma_len,
         matype=matype,
+        devtype=devtype,
         source_type=source_type,
         sequential=sequential
     )
 
     if sequential:
         return [None if np.isnan(x) else float(x) for x in result]
-    else:
-        return float(result)
+    return float(result)

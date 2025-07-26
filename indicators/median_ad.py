@@ -1,8 +1,8 @@
 import numpy as np
-from jesse.indicators.sma import sma as jesse_sma
+from jesse.indicators.median_ad import median_ad as jesse_median_ad
 
-def calculate_sma(candles: np.ndarray, period: int, source_type: str, sequential: bool):
-    result = jesse_sma(
+def calculate_median_ad(candles: np.ndarray, period: int, source_type: str, sequential: bool):
+    result = jesse_median_ad(
         candles=candles,
         period=period,
         source_type=source_type,

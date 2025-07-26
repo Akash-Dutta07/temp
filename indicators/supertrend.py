@@ -1,15 +1,21 @@
 import numpy as np
-from jesse.indicators.supertrend import supertrend
+from jesse.indicators.supertrend import supertrend as jesse_supertrend
 
-def calculate_supertrend(candles: np.ndarray, period: int = 10) -> dict:
-    trend, changed = supertrend(candles, period=period, factor=3, sequential=True)
+def calculate_supertrend(candles: np.ndarray, period: int, factor: float, sequential: bool):
+    trend, changed = jesse_supertrend(
+        candles=candles,
+        period=period,
+        factor=factor,
+        sequential=sequential
+    )
 
-    # Remove NaNs from the trend and changed arrays
-    clean_trend = trend[~np.isnan(trend)]
-    clean_changed = changed[~np.isnan(changed)]
-
-    return {
-        "indicator": "supertrend",
-        "trend": clean_trend.tolist(),
-        "changed": clean_changed.tolist()
-    }
+    if sequential:
+        return {
+            "trend": [None if np.isnan(x) else float(x) for x in trend],
+            "changed": [None if np.isnan(x) else int(x) for x in changed]
+        }
+    else:
+        return {
+            "trend": float(trend),
+            "changed": int(changed)
+        }

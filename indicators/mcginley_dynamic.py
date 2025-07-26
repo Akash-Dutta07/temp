@@ -1,10 +1,11 @@
 import numpy as np
-from jesse.indicators.sma import sma as jesse_sma
+from jesse.indicators.mcginley_dynamic import mcginley_dynamic as jesse_mcginley
 
-def calculate_sma(candles: np.ndarray, period: int, source_type: str, sequential: bool):
-    result = jesse_sma(
+def calculate_mcginley(candles: np.ndarray, period: int, k: float, source_type: str, sequential: bool):
+    result = jesse_mcginley(
         candles=candles,
         period=period,
+        k=k,
         source_type=source_type,
         sequential=sequential
     )
