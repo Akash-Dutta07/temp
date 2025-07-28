@@ -1,7 +1,7 @@
 import numpy as np
 from jesse.indicators.keltner import keltner as jesse_keltner
 
-def calculate_keltner(candles: np.ndarray, period: int = 20, multiplier: float = 2, matype: int = 1, source_type: str = "close", sequential: bool = False):
+def calculate_keltner(candles: np.ndarray, period: int = 20, multiplier: float = 2, matype: int = 1, source_type: str = "close", sequential: bool = True):
     kc = jesse_keltner(
         candles,
         period=period,

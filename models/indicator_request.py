@@ -33,6 +33,7 @@ class CKSPRequest(BaseModel):
     x: float = 1.0
     q: int = 9
     limit: int = 100
+    sequential: bool = True
 
 class CHOPRequest(BaseModel):
     symbol: str
@@ -96,6 +97,7 @@ class BollingerBandsRequest(BaseModel):
     devtype: int = 0
     source_type: str = "close"
     limit: int
+    sequential: bool = True
 
 class IchimokuCloudRequest(BaseModel):
     symbol: str
@@ -138,7 +140,7 @@ class KeltnerRequest(BaseModel):
     multiplier: float = 2
     matype: int = 1
     source_type: Literal["open", "high", "low", "close"] = "close"
-    sequential: bool = False
+    sequential: bool = True
 
 class MACDRequest(BaseModel):
     symbol: str
@@ -148,7 +150,7 @@ class MACDRequest(BaseModel):
     slow_period: int = 26
     signal_period: int = 9
     source_type: Literal["close", "open", "high", "low"] = "close"
-    sequential: bool = False
+    sequential: bool = True
 
 class PPORequest(BaseModel):
     symbol: str = Field(..., example="BTCUSDT")

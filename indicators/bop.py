@@ -1,19 +1,12 @@
 import numpy as np
-from typing import Union
-from jesse.helpers import same_length
+from jesse.indicators import bop
+from jesse.helpers import slice_candles
 
-def bop(candles: np.ndarray, sequential: bool = False) -> Union[float, np.ndarray]:
-    open_ = candles[:, 1]
-    high = candles[:, 3]
-    low = candles[:, 4]
-    close = candles[:, 2]
-
-    range_ = high - low
-    range_ = np.where(range_ == 0, np.nan, range_)  # Avoid division by zero
-
-    result = (close - open_) / range_
+def calculate_bop(candles: np.ndarray, sequential: bool = True) -> list:
+    sliced = slice_candles(candles, 100)
+    result = bop(sliced, sequential=sequential)
 
     if sequential:
-        return same_length(candles, result)
-
-    return result[-1]
+        return [round(float(v), 6) if not np.isnan(v) else None for v in result]
+    else:
+        return None if np.isnan(result) else round(float(result), 6)

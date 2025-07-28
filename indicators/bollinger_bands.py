@@ -8,7 +8,8 @@ def calculate_bollinger_bands(
     devdn: float = 2,
     matype: int = 0,
     devtype: int = 0,
-    source_type: str = "close"
+    source_type: str = "close",
+    sequential = True
 ):
     result = bollinger_bands(
         candles,
