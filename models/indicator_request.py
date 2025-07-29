@@ -266,6 +266,141 @@ class VPWMARequest(BaseModel):
     limit: int = 100         # default candle limit
 
 
+class SourceOnlyRequest(BaseModel):
+    symbol: str                # e.g., "BTCUSDT"
+    interval: str              # e.g., "1h"
+    limit: int = 100           # default candle limit
+    source_type: Optional[str] = "close"
+
+
+class ALMARequest(BaseModel):
+    symbol: str                      # e.g., "BTCUSDT"
+    interval: str                    # e.g., "1h"
+    period: int = 9
+    sigma: float = 6.0
+    distribution_offset: float = 0.85
+    source_type: Optional[str] = "close"
+    limit: int = 100
+
+
+class BetaRequest(BaseModel):
+    symbol: str                     # e.g., "ETHUSDT"
+    benchmark_symbol: str           # e.g., "BTCUSDT"
+    interval: str                   # e.g., "1h"
+    period: int = 5
+    limit: int = 100
+
+
+class KDJRequest(BaseModel):
+    symbol: str = Field(..., example="BTCUSDT")
+    interval: str = Field(..., example="1h")
+    limit: int = Field(100, example=100)
+    fastk_period: int = Field(9, example=9)
+    slowk_period: int = Field(3, example=3)
+    slowk_matype: Literal[0, 1, 2, 3, 4, 5] = Field(0, example=0)
+    slowd_period: int = Field(3, example=3)
+    slowd_matype: Literal[0, 1, 2, 3, 4, 5] = Field(0, example=0)
+    sequential: bool = Field(True, example=True)
+
+
+class KVORequest(BaseModel):
+    symbol: str = Field(..., example="BTCUSDT")
+    interval: str = Field(..., example="1h")
+    limit: int = Field(100, example=100)
+    short_period: int = Field(34, example=34)
+    long_period: int = Field(55, example=55)
+    sequential: bool = Field(True, example=True)
+
+
+class MWDXRequest(BaseModel):
+    symbol: str = Field(..., example="BTCUSDT")
+    interval: str = Field(..., example="1h")
+    limit: int = Field(100, example=100)
+    factor: float = Field(0.2, example=0.2)
+    source_type: Optional[str] = "close"
+    sequential: bool = Field(True, example=True)
+
+
+class NVIRequest(BaseModel):
+    symbol: str = Field(..., example="BTCUSDT")
+    interval: str = Field(..., example="1h")
+    limit: int = Field(100, example=100)
+    source_type: Optional[str] = "close"
+    sequential: bool = Field(True, example=True)
+
+
+class PVIRequest(BaseModel):
+    symbol: str = Field(..., example="BTCUSDT")
+    interval: str = Field(..., example="1h")
+    limit: int = Field(100, example=100)
+    source_type: Optional[str] = "close"
+    sequential: bool = Field(True, example=True)
+
+
+class DecOscRequest(BaseModel):
+    symbol: str = Field(..., example="BTCUSDT")
+    interval: str = Field(..., example="1h")
+    limit: int = Field(100, example=100)
+    hp_period: int = Field(125, example=125)
+    k: float = Field(1.0, example=1.0)
+    source_type: Optional[str] = "close"
+    sequential: bool = Field(True, example=True)
+
+
+class SafeZoneStopRequest(BaseModel):
+    symbol: str = Field(..., example="BTCUSDT")
+    interval: str = Field(..., example="1h")
+    limit: int = Field(100, example=100)
+    period: int = Field(22, example=22)
+    mult: float = Field(2.5, example=2.5)
+    max_lookback: int = Field(3, example=3)
+    direction: Literal["long", "short"] = Field("long", example="long")
+    sequential: bool = Field(True, example=True)
+
+
+class SupportResistanceBreaksRequest(BaseModel):
+    symbol: str = Field(..., example="BTCUSDT")
+    interval: str = Field(..., example="1h")
+    limit: int = Field(100, example=100)
+    left_bars: int = Field(15, example=15)
+    right_bars: int = Field(15, example=15)
+    vol_threshold: int = Field(20, example=20)
+
+
+class TTMSqueezeRequest(BaseModel):
+    symbol: str
+    interval: str
+    length_ttms: int = 20
+    bb_mult_ttms: float = 2.0
+    kc_mult_low_ttms: float = 2.0
+    limit: int = 100
+ 
+ 
+class WTRequest(BaseModel):
+    symbol: str          # e.g., "BTCUSDT"
+    interval: str        # e.g., "1h"
+    limit: int = 100     # number of candles
+    wtchannellen: int = 9
+    wtaveragelen: int = 12
+    wtmalen: int = 3
+    oblevel: int = 53
+    oslevel: int = -53
+    source_type: Optional[str] = "hlc3"
+
+
+class Volume24hRequest(BaseModel):
+    symbol: str
+    interval: str
+    limit: int = 100
+    candles_per_day: int = 24
+    ma_period: Optional[int] = None  # e.g., 5-period MA of the 24h volumes
+
+
+
+
+
+
+
 
 
 

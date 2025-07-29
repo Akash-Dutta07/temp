@@ -30,6 +30,20 @@ from models.indicator_request import RVIRequest
 from models.indicator_request import StochRequest
 from models.indicator_request import TSIRequest
 from models.indicator_request import VPWMARequest
+from models.indicator_request import SourceOnlyRequest
+from models.indicator_request import ALMARequest
+from models.indicator_request import BetaRequest
+from models.indicator_request import KDJRequest
+from models.indicator_request import KVORequest
+from models.indicator_request import MWDXRequest
+from models.indicator_request import NVIRequest
+from models.indicator_request import PVIRequest
+from models.indicator_request import DecOscRequest
+from models.indicator_request import SafeZoneStopRequest
+from models.indicator_request import SupportResistanceBreaksRequest
+from models.indicator_request import TTMSqueezeRequest
+from models.indicator_request import WTRequest
+from models.indicator_request import Volume24hRequest
 
 from services.binance_service import fetch_candles
 
@@ -100,6 +114,26 @@ from indicators.trix import calculate_trix
 from indicators.volume import calculate_volume
 from indicators.vpwma import calculate_vpwma
 from indicators.vwma import calculate_vwma
+from indicators.alligator import calculate_alligator
+from indicators.alma import calculate_alma
+from indicators.beta import calculate_beta
+from indicators.avgprice import calculate_avgprice
+from indicators.hma import calculate_hma
+from indicators.kdj import calculate_kdj
+from indicators.kvo import calculate_kvo
+from indicators.linearreg import calculate_linearreg
+from indicators.mwdx import calculate_mwdx
+from indicators.nvi import calculate_nvi
+from indicators.pvi import calculate_pvi
+from indicators.dec_osc import calculate_dec_osc
+from indicators.safezonestop import calculate_safezonestop
+from indicators.support_resistance_with_breaks import calculate_support_resistance_with_breaks
+from indicators.tsf import tsf
+from indicators.ttm_squeeze import calculate_ttm_squeeze
+from indicators.vi import calculate_vi
+from indicators.wt import calculate_wt
+from indicators.srsi import calculate_srsi
+from indicators.volume_24h import calculate_volume_24h
 
 import numpy as np
 from fastapi.responses import JSONResponse
@@ -1400,14 +1434,448 @@ async def get_vwma(data: IndicatorWithSourceRequest):
 
 
 
+# Alligator
+@app.post("/alligator")
+async def get_alligator(data: SourceOnlyRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+
+    result = calculate_alligator(
+        candles,
+        source_type=data.source_type
+    )
+
+    return {
+        "indicator": "alligator",
+        "symbol": data.symbol,
+        "interval": data.interval,
+        "source_type": data.source_type,
+        "values": result
+    }
+
+
+# Arnaud Legoux Moving Average (ALMA)
+@app.post("/alma")
+async def get_alma(data: ALMARequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+
+    result = calculate_alma(
+        candles,
+        period=data.period,
+        sigma=data.sigma,
+        distribution_offset=data.distribution_offset,
+        source_type=data.source_type
+    )
+
+    return {
+        "indicator": "alma",
+        "symbol": data.symbol,
+        "interval": data.interval,
+        "params": {
+            "period": data.period,
+            "sigma": data.sigma,
+            "distribution_offset": data.distribution_offset,
+            "source_type": data.source_type
+        },
+        "values": result
+    }
 
 
 
+# beta
+@app.post("/beta")
+async def get_beta(data: BetaRequest):
+    main_candles = await fetch_candles(data.symbol, data.interval, data.limit)
+    benchmark_candles = await fetch_candles(data.benchmark_symbol, data.interval, data.limit)
+
+    result = calculate_beta(
+        main_candles,
+        benchmark_candles,
+        period=data.period
+    )
+
+    return {
+        "indicator": "beta",
+        "symbol": data.symbol,
+        "benchmark_symbol": data.benchmark_symbol,
+        "interval": data.interval,
+        "period": data.period,
+        "values": result
+    }
 
 
 
+# Average Price
+@app.post("/avgprice")
+async def get_avgprice(data: NoPeriodIndicatorRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+
+    result = calculate_avgprice(candles)
+
+    return {
+        "indicator": "avgprice",
+        "symbol": data.symbol,
+        "interval": data.interval,
+        "values": result
+    }
 
 
 
+# Hull Moving Average (HMA)
+@app.post("/hma")
+async def get_hma(data: IndicatorWithSourceRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
+    result = calculate_hma(
+        candles,
+        period=data.period,
+        source_type=data.source_type
+    )
+
+    return {
+        "indicator": "hma",
+        "symbol": data.symbol,
+        "interval": data.interval,
+        "period": data.period,
+        "source_type": data.source_type,
+        "values": result
+    }
+    
+
+
+#  KDJ Oscillator
+@app.post("/kdj")
+async def get_kdj(data: KDJRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+
+    result = calculate_kdj(
+        candles,
+        fastk_period=data.fastk_period,
+        slowk_period=data.slowk_period,
+        slowk_matype=data.slowk_matype,
+        slowd_period=data.slowd_period,
+        slowd_matype=data.slowd_matype
+    )
+
+    return {
+        "indicator": "kdj",
+        "symbol": data.symbol,
+        "interval": data.interval,
+        "values": result
+    }
+
+
+# Klinger Volume Oscillator (KVO)
+@app.post("/kvo")
+async def get_kvo(data: KVORequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+
+    result = calculate_kvo(
+        candles,
+        short_period=data.short_period,
+        long_period=data.long_period
+    )
+
+    return {
+        "indicator": "kvo",
+        "symbol": data.symbol,
+        "interval": data.interval,
+        "short_period": data.short_period,
+        "long_period": data.long_period,
+        "values": result
+    }
+
+
+# Linear Regression indicator (LINEARREG)
+@app.post("/linearreg")
+async def get_linearreg(data: IndicatorWithSourceRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+
+    result = calculate_linearreg(
+        candles,
+        period=data.period,
+        source_type=data.source_type
+    )
+
+    return {
+        "indicator": "linearreg",
+        "symbol": data.symbol,
+        "interval": data.interval,
+        "period": data.period,
+        "source_type": data.source_type,
+        "values": result
+    }
+
+
+# MWDX Average
+@app.post("/mwdx")
+async def get_mwdx(data: MWDXRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+
+    result = calculate_mwdx(
+        candles,
+        factor=data.factor,
+        source_type=data.source_type
+    )
+
+    return {
+        "indicator": "mwdx",
+        "symbol": data.symbol,
+        "interval": data.interval,
+        "factor": data.factor,
+        "source_type": data.source_type,
+        "values": result
+    }
+
+# Negative Volume Index (NVI)
+@app.post("/nvi")
+async def get_nvi(data: NVIRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+
+    result = calculate_nvi(
+        candles,
+        source_type=data.source_type
+    )
+
+    return {
+        "indicator": "nvi",
+        "symbol": data.symbol,
+        "interval": data.interval,
+        "source_type": data.source_type,
+        "values": result
+    }
+    
+    
+# Positive Volume Index (PVI) 
+@app.post("/pvi")
+async def get_pvi(data: PVIRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+
+    result = calculate_pvi(
+        candles,
+        source_type=data.source_type
+    )
+
+    return {
+        "indicator": "pvi",
+        "symbol": data.symbol,
+        "interval": data.interval,
+        "source_type": data.source_type,
+        "values": result
+    }
+
+
+# Ehlers Decycler Oscillator 
+@app.post("/dec_osc")
+async def get_dec_osc(data: DecOscRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+
+    result = calculate_dec_osc(
+        candles,
+        hp_period=data.hp_period,
+        k=data.k,
+        source_type=data.source_type
+    )
+
+    return {
+        "indicator": "dec_osc",
+        "symbol": data.symbol,
+        "interval": data.interval,
+        "hp_period": data.hp_period,
+        "k": data.k,
+        "source_type": data.source_type,
+        "values": result
+    }
+
+
+# safezonestop
+@app.post("/safezonestop")
+async def get_safezonestop(data: SafeZoneStopRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+
+    result = calculate_safezonestop(
+        candles,
+        period=data.period,
+        mult=data.mult,
+        max_lookback=data.max_lookback,
+        direction=data.direction
+    )
+
+    return {
+        "indicator": "safezonestop",
+        "symbol": data.symbol,
+        "interval": data.interval,
+        "params": {
+            "period": data.period,
+            "mult": data.mult,
+            "max_lookback": data.max_lookback,
+            "direction": data.direction
+        },
+        "values": result
+    }
+
+
+
+# support_resistance_with_breaks
+@app.post("/support_resistance_with_breaks")
+async def get_support_resistance_with_breaks(data: SupportResistanceBreaksRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+
+    result = calculate_support_resistance_with_breaks(
+        candles,
+        left_bars=data.left_bars,
+        right_bars=data.right_bars,
+        vol_threshold=data.vol_threshold
+    )
+
+    return {
+        "indicator": "support_resistance_with_breaks",
+        "symbol": data.symbol,
+        "interval": data.interval,
+        "params": {
+            "left_bars": data.left_bars,
+            "right_bars": data.right_bars,
+            "vol_threshold": data.vol_threshold
+        },
+        "values": result
+    }
+
+
+
+# Time Series Forecast (TSF)
+@app.post("/tsf")
+async def get_tsf(data: IndicatorWithSourceRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+    tsf_values = tsf(
+        candles,
+        period=data.period,
+        source_type=data.source_type,
+        sequential=True
+    )
+
+    # Convert np.nan to None for JSON serialization
+    tsf_serializable = [None if np.isnan(x) else float(x) for x in tsf_values]
+
+    return {
+        "indicator": "tsf",
+        "symbol": data.symbol.upper(),
+        "interval": data.interval,
+        "period": data.period,
+        "source_type": data.source_type,
+        "values": tsf_serializable
+    }
+
+
+
+# ttm_squeeze (TTM Squeeze)
+@app.post("/ttm_squeeze")
+async def get_ttm_squeeze(data: TTMSqueezeRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+    squeeze = calculate_ttm_squeeze(
+        candles,
+        length_ttms=data.length_ttms,
+        bb_mult_ttms=data.bb_mult_ttms,
+        kc_mult_low_ttms=data.kc_mult_low_ttms
+    )
+
+    return {
+        "indicator": "ttm_squeeze",
+        "symbol": data.symbol.upper(),
+        "interval": data.interval,
+        "params": {
+            "length_ttms": data.length_ttms,
+            "bb_mult_ttms": data.bb_mult_ttms,
+            "kc_mult_low_ttms": data.kc_mult_low_ttms,
+        },
+        "squeeze_detected": squeeze
+    }
+
+
+# Vortex Indicator (VI)
+@app.post("/vi")
+async def get_vi(data: IndicatorRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+    vi_result = calculate_vi(candles, period=data.period, sequential=True)
+
+    return {
+        "indicator": "vi",
+        "symbol": data.symbol.upper(),
+        "interval": data.interval,
+        "period": data.period,
+        "values": vi_result
+    }
+
+
+#  Wavetrend indicator
+@app.post("/wt")
+async def get_wt(data: WTRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+    result = calculate_wt(
+        candles,
+        wtchannellen=data.wtchannellen,
+        wtaveragelen=data.wtaveragelen,
+        wtmalen=data.wtmalen,
+        oblevel=data.oblevel,
+        oslevel=data.oslevel,
+        source_type=data.source_type
+    )
+
+    def safe_array(arr):
+        return [None if isinstance(x, float) and (np.isnan(x) or np.isinf(x)) else x for x in arr.tolist()]
+
+    return {
+        "indicator": "wt",
+        "symbol": data.symbol.upper(),
+        "interval": data.interval,
+        "wt1": safe_array(result.wt1),
+        "wt2": safe_array(result.wt2),
+        "wtCrossUp": safe_array(result.wtCrossUp),
+        "wtCrossDown": safe_array(result.wtCrossDown),
+        "wtOversold": safe_array(result.wtOversold),
+        "wtOverbought": safe_array(result.wtOverbought),
+        "wtVwap": safe_array(result.wtVwap)
+    }
+
+
+# Stochastic RSI (SRSI)
+@app.post("/srsi")
+async def get_srsi(data: IndicatorWithSourceRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+    result = calculate_srsi(
+        candles,
+        period=data.period,
+        source_type=data.source_type
+    )
+
+    def safe_array(arr):
+        return [None if isinstance(x, float) and (np.isnan(x) or np.isinf(x)) else x for x in arr.tolist()]
+
+    return {
+        "indicator": "srsi",
+        "symbol": data.symbol.upper(),
+        "interval": data.interval,
+        "k": safe_array(result.k),
+        "d": safe_array(result.d)
+    }
+
+
+# Volume 24h
+@app.post("/volume_24h")
+async def get_volume_24h(data: Volume24hRequest):
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+    result = calculate_volume_24h(
+        candles=candles,
+        candles_per_day=data.candles_per_day,
+        ma_period=data.ma_period,
+        sequential=True
+    )
+
+    return {
+        "indicator": "volume_24h",
+        "symbol": data.symbol.upper(),
+        "interval": data.interval,
+        "candles_per_day": data.candles_per_day,
+        "ma_period": data.ma_period,
+        "volume_24h": result["volume_24h"],
+        "volume_24h_ma": result["volume_24h_ma"]
+    }
 
