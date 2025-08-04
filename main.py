@@ -137,9 +137,18 @@ from indicators.volume_24h import calculate_volume_24h
 
 import numpy as np
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI()
-
+# Allow CORS for  frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173","http://localhost:5174"],  # or ["*"] to allow all (not recommended for production)
+    allow_credentials=True,
+    allow_methods=["*"],                      # Allow all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],                      # Allow all headers
+)
 # Simple Moving Average (SMA)
 @app.post("/sma")
 async def get_sma(data: IndicatorWithSourceRequest):
@@ -641,7 +650,6 @@ async def get_cksp(data: CKSPRequest):
     }
 
 
-
 # Choppiness Index (CHOP)
 @app.post("/chop")
 async def get_chop(data: CHOPRequest):
@@ -967,7 +975,6 @@ async def get_mean_ad(data: IndicatorWithSourceRequest):
         "source_type": data.source_type,
         "values": values
     }
-
 
 
 
