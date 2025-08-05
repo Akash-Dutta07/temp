@@ -11,6 +11,5 @@ def calculate_alma(candles, period: int, sigma: float, distribution_offset: floa
         sequential=True
     )
 
-    return {
-        "alma": np.where(np.isnan(values), None, values).tolist()
-    }
+    return np.where(np.isnan(values), None, values).tolist()
+    

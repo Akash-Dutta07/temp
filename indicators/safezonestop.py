@@ -11,6 +11,5 @@ def calculate_safezonestop(candles, period: int, mult: float, max_lookback: int,
         sequential=True
     )
 
-    return {
-        "safezonestop": np.where(np.isnan(values), None, values).tolist()
-    }
+    return np.where(np.isnan(values), None, values).tolist()
+    

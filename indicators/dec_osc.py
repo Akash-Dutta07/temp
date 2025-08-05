@@ -10,6 +10,4 @@ def calculate_dec_osc(candles, hp_period: int, k: float, source_type: str):
         sequential=True
     )
 
-    return {
-        "dec_osc": np.where(np.isnan(values), None, values).tolist()
-    }
+    return np.where(np.isnan(values), None, values).tolist()

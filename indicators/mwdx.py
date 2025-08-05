@@ -9,6 +9,5 @@ def calculate_mwdx(candles, factor: float, source_type: str):
         sequential=True
     )
 
-    return {
-        "mwdx": np.where(np.isnan(values), None, values).tolist()
-    }
+    return  np.where(np.isnan(values), None, values).tolist()
+    

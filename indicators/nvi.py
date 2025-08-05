@@ -8,6 +8,5 @@ def calculate_nvi(candles, source_type: str):
         sequential=True
     )
 
-    return {
-        "nvi": np.where(np.isnan(values), None, values).tolist()
-    }
+    return np.where(np.isnan(values), None, values).tolist()
+    

@@ -9,6 +9,5 @@ def calculate_kvo(candles, short_period: int, long_period: int):
         sequential=True
     )
 
-    return {
-        "kvo": np.where(np.isnan(values), None, values).tolist()
-    }
+    return np.where(np.isnan(values), None, values).tolist()
+    

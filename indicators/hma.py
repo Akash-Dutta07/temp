@@ -9,6 +9,5 @@ def calculate_hma(candles, period: int, source_type: str):
         sequential=True
     )
 
-    return {
-        "hma": np.where(np.isnan(values), None, values).tolist()
-    }
+    return np.where(np.isnan(values), None, values).tolist()
+    
