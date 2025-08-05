@@ -139,6 +139,102 @@ import numpy as np
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+# NEW WEBSOCKET IMPORTS
+import asyncio
+import json
+import inspect
+from fastapi import WebSocket, WebSocketDisconnect
+from utils.websocket_manager import manager
+
+
+# Indicator Functions Mapping 
+INDICATOR_FUNCTIONS = {
+    "ad": ad,
+    "adosc": adosc,
+    "adx": calculate_adx,
+    "alligator": calculate_alligator,
+    "alma": calculate_alma,
+    "ao": calculate_ao,
+    "apo": calculate_apo,
+    "aroon": calculate_aroon,
+    "atr": calculate_atr,
+    "avgprice": calculate_avgprice,
+    "beta": calculate_beta,
+    "bollinger_bands_width": calculate_bollinger_bands_width,
+    "bollinger_bands": calculate_bollinger_bands,
+    "bop": calculate_bop,
+    "calculate_fisher": calculate_fisher,
+    "cc": calculate_cc,
+    "cci": calculate_cci,
+    "cfo": calculate_cfo,
+    "chop": chop,
+    "cksp": calculate_cksp,
+    "cmo": calculate_cmo,
+    "correl": calculate_correl,
+    "dec_osc": calculate_dec_osc,
+    "dema": dema,
+    "di": calculate_di,
+    "dm": calculate_dm,
+    "donchian": calculate_donchian,
+    "dpo": calculate_dpo,
+    "dx": calculate_dx,
+    "efi": calculate_efi,
+    "ema": calculate_ema,
+    "emv": calculate_emv,
+    "hma": calculate_hma,
+    "ichimoku_cloud": calculate_ichimoku_cloud,
+    "kdj": calculate_kdj,
+    "keltner": calculate_keltner,
+    "kst": calculate_kst,
+    "kvo": calculate_kvo,
+    "linearreg": calculate_linearreg,
+    "ma": calculate_ma,
+    "macd": calculate_macd,
+    "mass": calculate_mass,
+    "mcginley_dynamic": calculate_mcginley,
+    "mean_ad": calculate_mean_ad,
+    "median_ad": calculate_median_ad,
+    "medprice": calculate_medprice,
+    "mfi": calculate_mfi,
+    "mom": calculate_mom,
+    "mwdx": calculate_mwdx,
+    "nvi": calculate_nvi,
+    "obv": calculate_obv,
+    "pivot": calculate_pivot,
+    "ppo": calculate_ppo,
+    "pvi": calculate_pvi,
+    "roc": calculate_roc,
+    "rocp": calculate_rocp,
+    "rocr": calculate_rocr,
+    "rocr100": calculate_rocr100,
+    "rsi": calculate_rsi,
+    "rvi": calculate_rvi,
+    "safezonestop": calculate_safezonestop,
+    "sar": calculate_sar,
+    "sma": calculate_sma,
+    "smma": calculate_smma,
+    "srsi": calculate_srsi,
+    "supertrend": calculate_supertrend,
+    "support_resistance_with_breaks": calculate_support_resistance_with_breaks,
+    "tema": calculate_tema,
+    "trix": calculate_trix,
+    "tsf": tsf,
+    "tsi": calculate_tsi,
+    "ttm_squeeze": calculate_ttm_squeeze,
+    "ttm_trend": calculate_ttm_trend,
+    "ultosc": calculate_ultosc,
+    "vi": calculate_vi,
+    "volume_24h": calculate_volume_24h,
+    "volume": calculate_volume,
+    "vpt": calculate_vpt,
+    "vpwma": calculate_vpwma,
+    "vwap": calculate_vwap,
+    "vwma": calculate_vwma,
+    "williams": calculate_williams_r,
+    "wma": calculate_wma,
+    "wt": calculate_wt,
+}
+
 
 app = FastAPI()
 # Allow CORS for  frontend
@@ -149,6 +245,74 @@ app.add_middleware(
     allow_methods=["*"],                      # Allow all HTTP methods (GET, POST, etc.)
     allow_headers=["*"],                      # Allow all headers
 )
+
+
+# WebSocket Endpoint 
+@app.websocket("/ws/indicators")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        config_message = await websocket.receive_text()
+        config = json.loads(config_message)
+
+        indicator_name = config.get("indicator").lower()
+        symbol = config.get("symbol")
+        interval = config.get("interval")
+        limit = config.get("limit", 200)
+
+        if not all([indicator_name, symbol, interval]):
+            await manager.send_personal_message({"error": "Missing required parameters."}, websocket)
+            return
+
+        if indicator_name not in INDICATOR_FUNCTIONS:
+            await manager.send_personal_message({"error": f"Unknown indicator: {indicator_name}"}, websocket)
+            return
+
+        calculate_function = INDICATOR_FUNCTIONS[indicator_name]
+
+        while True:
+            try:
+                candles = await fetch_candles(symbol=symbol, interval=interval, limit=limit)
+                
+                calc_args = {"candles": candles}
+                
+                for key, value in config.items():
+                    if key not in ["indicator", "symbol", "interval", "limit"]:
+                        calc_args[key] = value
+
+                if 'source_type' not in calc_args:
+                    calc_args['source_type'] = 'close'
+                if 'sequential' not in calc_args:
+                    calc_args['sequential'] = True
+
+                
+                result_values = calculate_function(**calc_args)
+
+                data_to_send = {
+                    "indicator": indicator_name,
+                    "symbol": symbol.upper(),
+                    "interval": interval,
+                    "values": result_values.tolist() if isinstance(result_values, np.ndarray) else result_values
+                }
+                await manager.send_personal_message(data_to_send, websocket)
+
+            except Exception as e:
+                print(f"Error for {symbol} ({indicator_name}): {e}")
+                await manager.send_personal_message({"error": f"Failed to calculate {indicator_name}: {str(e)}"}, websocket)
+
+            await asyncio.sleep(5)
+
+    except WebSocketDisconnect:
+        print(f"Client disconnected from {websocket.client}")
+    except json.JSONDecodeError:
+        print("Received invalid JSON from client.")
+        await manager.send_personal_message({"error": "Invalid JSON format received."}, websocket)
+    finally:
+        manager.disconnect(websocket)
+        print("Connection closed.")
+
+
+
 # Simple Moving Average (SMA)
 @app.post("/sma")
 async def get_sma(data: IndicatorWithSourceRequest):
