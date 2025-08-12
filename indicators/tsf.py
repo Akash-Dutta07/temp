@@ -1,19 +1,15 @@
 import numpy as np
-from jesse.helpers import get_candle_source
-from typing import Union
-from scipy.stats import linregress
+from jesse.indicators.tsf import tsf as jesse_tsf
 
-def tsf(candles: np.ndarray, period: int = 14, source_type: str = "close", sequential: bool = False) -> Union[float, np.ndarray]:
-    source = get_candle_source(candles, source_type)
-    
-    def _tsf(src: np.ndarray, length: int) -> np.ndarray:
-        result = np.full_like(src, fill_value=np.nan)
-        for i in range(length - 1, src.shape[0]):
-            y = src[i - length + 1:i + 1]
-            x = np.arange(length)
-            slope, intercept, *_ = linregress(x, y)
-            result[i] = intercept + slope * (length - 1)
-        return result
+def calculate_tsf(candles: np.ndarray, period: int, source_type: str, sequential: bool):
+    result = jesse_tsf(
+        candles=candles,
+        period=period,
+        source_type=source_type,
+        sequential=sequential
+    )
 
-    res = _tsf(source, period)
-    return res if sequential else res[-1]
+    if sequential:
+        return [None if np.isnan(x) else float(x) for x in result]
+    else:
+        return float(result)

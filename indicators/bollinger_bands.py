@@ -3,23 +3,23 @@ from jesse.indicators import bollinger_bands
 
 def calculate_bollinger_bands(
     candles: np.ndarray,
-    period: int = 20,
-    devup: float = 2,
-    devdn: float = 2,
-    matype: int = 0,
-    devtype: int = 0,
-    source_type: str = "close",
-    sequential = True
+    period: int,
+    devup: float,
+    devdn: float,
+    matype: int,
+    devtype: int,
+    source_type: str,
+    sequential: bool
 ):
     result = bollinger_bands(
         candles,
         period=period,
         devup=devup,
         devdn=devdn,
-        matype=matype,
+        matype=matype,   
         devtype=devtype,
         source_type=source_type,
-        sequential=True
+        sequential=sequential
     )
 
     # Convert np.nan to None

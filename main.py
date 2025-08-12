@@ -68,20 +68,20 @@ from indicators.donchian import calculate_donchian
 from indicators.obv import calculate_obv
 from indicators.efi import calculate_efi
 from indicators.cksp import calculate_cksp
-from indicators.chop import chop
+from indicators.chop import calculate_chop
 from indicators.correl import calculate_correl
 from indicators.dpo import calculate_dpo
 from indicators.dm import calculate_dm
 from indicators.aroon import calculate_aroon
 from indicators.ao import calculate_ao
 from indicators.bop import calculate_bop
-from indicators.ad import ad
+from indicators.ad import calculate_ad
 from indicators.bollinger_bands_width import calculate_bollinger_bands_width
 from indicators.cfo import calculate_cfo
-from indicators.adosc import adosc
+from indicators.adosc import calculate_adosc
 from indicators.dx import calculate_dx
-from indicators.dema import dema
-from indicators.calculate_fisher import calculate_fisher
+from indicators.dema import calculate_dema
+from indicators.fisher import calculate_fisher
 from indicators.ichimoku_cloud import calculate_ichimoku_cloud
 from indicators.di import calculate_di
 from indicators.emv import calculate_emv
@@ -128,7 +128,7 @@ from indicators.pvi import calculate_pvi
 from indicators.dec_osc import calculate_dec_osc
 from indicators.safezonestop import calculate_safezonestop
 from indicators.support_resistance_with_breaks import calculate_support_resistance_with_breaks
-from indicators.tsf import tsf
+from indicators.tsf import calculate_tsf
 from indicators.ttm_squeeze import calculate_ttm_squeeze
 from indicators.vi import calculate_vi
 from indicators.wt import calculate_wt
@@ -144,13 +144,14 @@ import asyncio
 import json
 import inspect
 from fastapi import WebSocket, WebSocketDisconnect
+from fastapi.encoders import jsonable_encoder
 from utils.websocket_manager import manager
 
 
 # Indicator Functions Mapping 
 INDICATOR_FUNCTIONS = {
-    "ad": ad,
-    "adosc": adosc,
+    "ad": calculate_ad,
+    "adosc": calculate_adosc,
     "adx": calculate_adx,
     "alligator": calculate_alligator,
     "alma": calculate_alma,
@@ -163,16 +164,16 @@ INDICATOR_FUNCTIONS = {
     "bollinger_bands_width": calculate_bollinger_bands_width,
     "bollinger_bands": calculate_bollinger_bands,
     "bop": calculate_bop,
-    "calculate_fisher": calculate_fisher,
+    "fisher": calculate_fisher,
     "cc": calculate_cc,
     "cci": calculate_cci,
     "cfo": calculate_cfo,
-    "chop": chop,
+    "chop": calculate_chop,
     "cksp": calculate_cksp,
     "cmo": calculate_cmo,
     "correl": calculate_correl,
-    "dec_osc": calculate_dec_osc,
-    "dema": dema,
+    "decosc": calculate_dec_osc,
+    "dema": calculate_dema,
     "di": calculate_di,
     "dm": calculate_dm,
     "donchian": calculate_donchian,
@@ -213,12 +214,13 @@ INDICATOR_FUNCTIONS = {
     "sar": calculate_sar,
     "sma": calculate_sma,
     "smma": calculate_smma,
+    "stoch": calculate_stoch,
     "srsi": calculate_srsi,
     "supertrend": calculate_supertrend,
     "support_resistance_with_breaks": calculate_support_resistance_with_breaks,
     "tema": calculate_tema,
     "trix": calculate_trix,
-    "tsf": tsf,
+    "tsf": calculate_tsf,
     "tsi": calculate_tsi,
     "ttm_squeeze": calculate_ttm_squeeze,
     "ttm_trend": calculate_ttm_trend,
@@ -230,7 +232,7 @@ INDICATOR_FUNCTIONS = {
     "vpwma": calculate_vpwma,
     "vwap": calculate_vwap,
     "vwma": calculate_vwma,
-    "williams": calculate_williams_r,
+    "williams_r": calculate_williams_r,
     "wma": calculate_wma,
     "wt": calculate_wt,
 }
@@ -269,22 +271,21 @@ async def websocket_endpoint(websocket: WebSocket):
             return
 
         calculate_function = INDICATOR_FUNCTIONS[indicator_name]
-
+        
         while True:
             try:
                 candles = await fetch_candles(symbol=symbol, interval=interval, limit=limit)
                 
+                func_params = inspect.signature(calculate_function).parameters
+                
                 calc_args = {"candles": candles}
                 
                 for key, value in config.items():
-                    if key not in ["indicator", "symbol", "interval", "limit"]:
+                    if key in func_params:
                         calc_args[key] = value
 
-                if 'source_type' not in calc_args:
-                    calc_args['source_type'] = 'close'
-                if 'sequential' not in calc_args:
+                if 'sequential' in func_params:
                     calc_args['sequential'] = True
-
                 
                 result_values = calculate_function(**calc_args)
 
@@ -292,9 +293,16 @@ async def websocket_endpoint(websocket: WebSocket):
                     "indicator": indicator_name,
                     "symbol": symbol.upper(),
                     "interval": interval,
-                    "values": result_values.tolist() if isinstance(result_values, np.ndarray) else result_values
+                    "values": jsonable_encoder(result_values)
                 }
-                await manager.send_personal_message(data_to_send, websocket)
+
+                # This try...except block is the core fix. It will break the loop immediately
+                # if the client disconnects, preventing the RuntimeError.
+                try:
+                    await manager.send_personal_message(data_to_send, websocket)
+                except WebSocketDisconnect:
+                    print(f"Client disconnected from {websocket.client}")
+                    break # Exit the loop immediately on disconnection
 
             except Exception as e:
                 print(f"Error for {symbol} ({indicator_name}): {e}")
@@ -313,15 +321,20 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 
+
+
+
+
 # Simple Moving Average (SMA)
 @app.post("/sma")
 async def get_sma(data: IndicatorWithSourceRequest):
+    """Simple Moving Average (SMA)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_sma(
         candles=candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True  # always array output
+        sequential=data.sequential  # always array output
     )
 
     return {
@@ -336,12 +349,13 @@ async def get_sma(data: IndicatorWithSourceRequest):
 # Relative Strength Index (RSI)
 @app.post("/rsi")
 async def get_rsi(data: IndicatorWithSourceRequest):
+    """Relative Strength Index (RSI) """
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_rsi(
         candles=candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True  # array output
+        sequential=data.sequential  # array output
     )
 
     return {
@@ -356,8 +370,9 @@ async def get_rsi(data: IndicatorWithSourceRequest):
 # EMA -Exponential Moving Average
 @app.post("/ema")
 async def get_ema(data: IndicatorWithSourceRequest):
+    """Exponential Moving Average (EMA)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    result = calculate_ema(candles, data.period, data.source_type, sequential=True)
+    values = calculate_ema(candles, period=data.period, source_type=data.source_type, sequential=data.sequential)
     
     return {
         "indicator": "ema",
@@ -365,12 +380,13 @@ async def get_ema(data: IndicatorWithSourceRequest):
         "interval": data.interval,
         "period": data.period,
         "source_type": data.source_type,
-        "values": result
+        "values": values
     }
 
 # Moving Average Convergence Divergence (MACD)
 @app.post("/macd")
 async def get_macd(data: MACDRequest):
+    """Moving Average Convergence Divergence (MACD)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     result = calculate_macd(
         candles=candles,
@@ -393,9 +409,10 @@ async def get_macd(data: MACDRequest):
 # Bollinger Bands
 @app.post("/bollinger-bands")
 async def get_bollinger_bands(data: BollingerBandsRequest):
+    """Bollinger Bands"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
-    result = calculate_bollinger_bands(
+    values = calculate_bollinger_bands(
         candles,
         period=data.period,
         devup=data.devup,
@@ -411,27 +428,32 @@ async def get_bollinger_bands(data: BollingerBandsRequest):
         "symbol": data.symbol.upper(),
         "interval": data.interval,
         "period": data.period,
-        "values": result
+        "values": values
     }
 
 #Average True Range (ATR)
 @app.post("/atr")
 async def get_atr(data: IndicatorRequest):
-    try:
-        candles = await fetch_candles(data.symbol, data.interval, data.limit)
-        result = calculate_atr(candles, data.period)
-        result.update({
-            "symbol": data.symbol.upper(),
-            "interval": data.interval,
-            "period": data.period
-        })
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Average True Range (ATR))"""
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+    values = calculate_atr(
+        candles=candles,
+        period=data.period,
+        sequential=data.sequential  # always array output
+    )
+
+    return {
+        "indicator": "atr",
+        "symbol": data.symbol.upper(),
+        "interval": data.interval,
+        "period": data.period,
+        "values": values
+    }
 
 # SuperTrend
 @app.post("/supertrend")
 async def get_supertrend(data: SupertrendRequest):
+    """SuperTrend"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_supertrend(
         candles=candles,
@@ -452,6 +474,7 @@ async def get_supertrend(data: SupertrendRequest):
 # Volume Weighted Average Price (VWAP)
 @app.post("/vwap")
 async def get_vwap(data: VWAPRequest):
+    """Volume Weighted Average Price (VWAP"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_vwap(
         candles=candles,
@@ -472,42 +495,59 @@ async def get_vwap(data: VWAPRequest):
 # Average Directional Movement Index (ADX)
 @app.post("/adx")
 async def get_adx(data: IndicatorRequest):
-    try:
-        candles = await fetch_candles(data.symbol, data.interval, data.limit)
-        result = calculate_adx(candles, data.period)
-        result.update({
-            "symbol": data.symbol.upper(),
-            "interval": data.interval,
-            "period": data.period
-        })
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Average Directional Movement Index (ADX)"""
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+    values = calculate_adx(
+        candles=candles,
+        period=data.period,
+        sequential=data.sequential  # always array output
+    )
+
+    return {
+        "indicator": "adx",
+        "symbol": data.symbol.upper(),
+        "interval": data.interval,
+        "period": data.period,
+        "values": values
+    }
 
 # Commodity Channel Index (CCI)
 @app.post("/cci")
 async def get_cci(data: IndicatorRequest):
-    try:
-        candles = await fetch_candles(data.symbol, data.interval, data.limit)
-        result = calculate_cci(candles, data.period)
-        result.update({
-            "symbol": data.symbol.upper(),
-            "interval": data.interval,
-            "period": data.period
-        })
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Commodity Channel Index"""
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+    values = calculate_cci(
+        candles=candles,
+        period=data.period,
+        sequential=data.sequential  # always array output
+    )
+
+    return {
+        "indicator": "cci",
+        "symbol": data.symbol.upper(),
+        "interval": data.interval,
+        "period": data.period,
+        "values": values
+    }
 
 # Williams' %R(willr)
 @app.post("/williams_r")
 async def get_williams_r(data: IndicatorRequest):
-    try:
-        candles = await fetch_candles(data.symbol, data.interval, data.limit)
-        result = calculate_williams_r(candles, data.period)
-        return result
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"detail": str(e)})    
+    """Williams' %R (willr)"""
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+    values = calculate_williams_r(
+        candles=candles,
+        period=data.period,
+        sequential=data.sequential  # always array output
+    )
+
+    return {
+        "indicator": "williams_r",
+        "symbol": data.symbol.upper(),
+        "interval": data.interval,
+        "period": data.period,
+        "values": values
+    }   
 
 #  Rate of Change (ROC)
 @app.post("/roc")
@@ -517,7 +557,7 @@ async def get_roc(data: IndicatorWithSourceRequest):
         candles=candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True  # return array
+        sequential=data.sequential  # return array
     )
 
     return {
@@ -532,35 +572,37 @@ async def get_roc(data: IndicatorWithSourceRequest):
 #  Chande Momentum Oscillator (CMO)
 @app.post("/cmo")
 async def get_cmo(data: IndicatorWithSourceRequest):
+    """Chande Momentum Oscillator (CMO)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_cmo(
-        candles,
+        candles=candles,
         period=data.period,
-        source_type=data.source_type
+        source_type=data.source_type,
+        sequential=data.sequential
     )
-
-    cleaned_values = [round(float(v), 4) if not np.isnan(v) else None for v in values]
 
     return {
         "indicator": "cmo",
         "symbol": data.symbol.upper(),
         "interval": data.interval,
         "period": data.period,
-        "values": cleaned_values
+        "source_type": data.source_type,
+        "values": values
     }
 
 # Absolute Price Oscillator (APO)
 @app.post("/apo")
 async def get_apo(data: APORequest):
+    """Absolute Price Oscillator (APO)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
-    result = calculate_apo(
+    values = calculate_apo(
         candles=candles,
         fast_period=data.fast_period,
         slow_period=data.slow_period,
         matype=data.matype,
         source_type=data.source_type,
-        sequential=True
+        sequential=data.sequential
     )
 
     return {
@@ -571,13 +613,13 @@ async def get_apo(data: APORequest):
         "slow_period": data.slow_period,
         "matype": data.matype,
         "source_type": data.source_type,
-        "sequential": True,
-        "values": result
+        "values": values
     }
 
 # Percentage Price Oscillator (PPO)
 @app.post("/ppo")
 async def get_ppo(data: PPORequest):
+    """Percentage Price Oscillator (PPO)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_ppo(
         candles=candles,
@@ -602,8 +644,9 @@ async def get_ppo(data: PPORequest):
 # Money Flow Index (MFI)
 @app.post("/mfi")
 async def get_mfi(data: IndicatorRequest):
+    """Money Flow Index (MFI)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    values = calculate_mfi(candles, data.period, sequential=True)
+    values = calculate_mfi(candles=candles, period=data.period, sequential=data.sequential)
 
     return {
         "indicator": "mfi",
@@ -616,16 +659,16 @@ async def get_mfi(data: IndicatorRequest):
 # Coppock Curve (CC)
 @app.post("/cc")
 async def get_cc(data: CCRequest):
+    """Coppock Curve(CC)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_cc(
-        candles,
+        candles=candles,
         wma_period=data.wma_period,
         roc_short_period=data.roc_short_period,
         roc_long_period=data.roc_long_period,
-        source_type=data.source_type
+        source_type=data.source_type,
+        sequential=data.sequential
     )
-
-    cleaned_values = [round(float(v), 4) if not np.isnan(v) else None for v in values]
 
     return {
         "indicator": "cc",
@@ -634,24 +677,34 @@ async def get_cc(data: CCRequest):
         "wma_period": data.wma_period,
         "roc_short_period": data.roc_short_period,
         "roc_long_period": data.roc_long_period,
-        "values": cleaned_values
+        "values": values
     }
 
 # Donchian Channels (donchian)
 @app.post("/donchian")
 async def get_donchian(data: IndicatorRequest):
-    try:
-        candles = await fetch_candles(data.symbol, data.interval, data.limit)
-        result = calculate_donchian(candles, period=data.period)
-        return result
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"detail": str(e)})
+    """Donchian Channels"""
+    candles = await fetch_candles(data.symbol, data.interval, data.limit)
+    values = calculate_donchian(
+        candles=candles,
+        period=data.period,
+        sequential=data.sequential
+    )
+
+    return {
+        "indicator": "dochian",
+        "symbol": data.symbol.upper(),
+        "interval": data.interval,
+        "period": data.period,
+        "values": values
+    }
 
 # On Balance Volume (OBV)
 @app.post("/obv")
 async def get_obv(data: NoPeriodIndicatorRequest):
+    """On Balance Volume (OBV)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    values = calculate_obv(candles, sequential=True)
+    values = calculate_obv(candles=candles, sequential=data.sequential)
 
     return {
         "indicator": "obv",
@@ -663,8 +716,14 @@ async def get_obv(data: NoPeriodIndicatorRequest):
 # Elder's Force Index (EFI)
 @app.post("/efi")
 async def get_efi(data: IndicatorWithSourceRequest):
+    """Elder's Force Index (EFI)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    efi_values = calculate_efi(candles, data.period, data.source_type)
+    values = calculate_efi(
+        candles=candles,
+        period=data.period,
+        source_type=data.source_type,
+        sequential=data.sequential
+    )
 
     return {
         "indicator": "efi",
@@ -672,7 +731,7 @@ async def get_efi(data: IndicatorWithSourceRequest):
         "interval": data.interval,
         "period": data.period,
         "source_type": data.source_type,
-        "values": efi_values
+        "values": values
     }
 
 # Aroon indicator
@@ -680,14 +739,18 @@ async def get_efi(data: IndicatorWithSourceRequest):
 async def get_aroon(data: IndicatorRequest):
     """ aroon - Aroon indicator"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    result = calculate_aroon(candles, data.period)
+    values = calculate_aroon(
+        candles=candles,
+        period=data.period,
+        sequential=data.sequential
+    )
 
     return {
         "indicator": "aroon",
         "symbol": data.symbol.upper(),
         "interval": data.interval,
         "period": data.period,
-        "values": result
+        "values": values
     }
 
 # Awesome Oscillator (ao)
@@ -695,13 +758,16 @@ async def get_aroon(data: IndicatorRequest):
 async def get_ao(data: NoPeriodIndicatorRequest):
     """Ao -Awesome Oscillator"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    ao_values = calculate_ao(candles, sequential=True)
+    values = calculate_ao(
+        candles=candles,
+        sequential=data.sequential
+    )
 
     return {
         "indicator": "ao",
         "symbol": data.symbol.upper(),
         "interval": data.interval,
-        "values": ao_values
+        "values": values
     }
 
 # Balance of Power (BOP)
@@ -709,42 +775,41 @@ async def get_ao(data: NoPeriodIndicatorRequest):
 async def get_bop(data: NoPeriodIndicatorRequest):
     """BOP - Balance of Power"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    bop_values = calculate_bop(candles, sequential=True)
+    values = calculate_bop(candles=candles, sequential=data.sequential)
 
     return {
         "indicator": "bop",
         "symbol": data.symbol.upper(),
         "interval": data.interval,
-        "values": bop_values
+        "values": values
     }
 
 # Accumulation/Distribution Line (AD)
 @app.post("/ad")
-async def get_ad_handler(data: NoPeriodIndicatorRequest):
+async def get_ad(data: NoPeriodIndicatorRequest):
     """AD - Accumulation/Distribution Line"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    result = ad(candles, sequential=True)
+    values = calculate_ad(candles=candles, sequential=data.sequential)
     return {
         "indicator": "ad",
         "symbol": data.symbol.upper(),
         "interval": data.interval,
-        "values": result.tolist() if hasattr(result, "tolist") else result
+        "values": values
     }
 
 
 # Bollinger Bands Width
 @app.post("/bollinger-bands-width")
 async def get_bollinger_bands_width(data: BollingerBandsWidthRequest):
+    """Bollinger Bands Bandwidth"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    raw_values = calculate_bollinger_bands_width(
-        candles,
+    values = calculate_bollinger_bands_width(
+        candles=candles,
         period=data.period,
         mult=data.mult,
-        source_type=data.source_type
+        source_type=data.source_type,
+        sequential=data.sequential
     )
-
-    # Replace NaNs with None so FastAPI can return them properly
-    cleaned_values = [float(v) if not np.isnan(v) else None for v in raw_values]
 
     return {
         "indicator": "bollinger_bands_width",
@@ -753,18 +818,15 @@ async def get_bollinger_bands_width(data: BollingerBandsWidthRequest):
         "period": data.period,
         "mult": data.mult,
         "source_type": data.source_type,
-        "values": cleaned_values
+        "values": values
     }
 
 # Chande Forecast Oscillator (CFO)   
 @app.post("/cfo")
 async def get_cfo(data: CFORequest):
+    """Chande Forecast Oscillator (CFO)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    result = calculate_cfo(candles, data.period, data.scalar, data.source_type)
-
-    # Clean NaNs for JSON
-    import numpy as np
-    result_cleaned = [round(x, 5) if not np.isnan(x) else None for x in result]
+    result = calculate_cfo(candles=candles, period=data.period, scalar=data.scalar, source_type=data.source_type, sequential=data.sequential)
 
     return {
         "indicator": "cfo",
@@ -772,7 +834,7 @@ async def get_cfo(data: CFORequest):
         "interval": data.interval,
         "period": data.period,
         "scalar": data.scalar,
-        "values": result_cleaned
+        "values": result
     }
 
 # Chaikin A/D Oscillator(adosc)
@@ -780,55 +842,44 @@ async def get_cfo(data: CFORequest):
 async def get_adosc(data: ADOSCRequest):
     """ADOSC - Chaikin Oscillator"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    result = adosc(candles, data.fast_period, data.slow_period, sequential=True)
+    values = calculate_adosc(candles=candles, fast_period=data.fast_period, slow_period=data.slow_period, sequential=data.sequential)
     return {
         "indicator": "adosc",
         "symbol": data.symbol.upper(),
         "interval": data.interval,
         "fast_period": data.fast_period,
         "slow_period": data.slow_period,
-        "values": result.tolist() if hasattr(result, "tolist") else result
+        "values": values 
     }
 
 
 # Chande Kroll Stop (CKSP)
 @app.post("/cksp")
 async def get_cksp(data: CKSPRequest):
+    """Chande Kroll Stop (CKSP)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    result = calculate_cksp(
-        candles,
+    values = calculate_cksp(
+        candles=candles,
         p=data.p,
         x=data.x,
-        q=data.q
+        q=data.q,
+        sequential=data.sequential
     )
-
-    def safe_array(arr):
-        return [None if isinstance(x, float) and (np.isnan(x) or np.isinf(x)) else x for x in arr.tolist()]
 
     return {
         "indicator": "cksp",
         "symbol": data.symbol.upper(),
         "interval": data.interval,
-        "long": safe_array(result.long),
-        "short": safe_array(result.short)
+        "values": values
     }
 
 
-# Choppiness Index (CHOP)
+# Choppiness Index (CHOP)  
 @app.post("/chop")
 async def get_chop(data: CHOPRequest):
+    """Choppiness Index (CHOP)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-
-    result = chop(
-        candles,
-        period=data.period,
-        scalar=data.scalar,
-        drift=data.drift,
-        sequential=True
-    )
-
-    # Convert NaN to None for safe JSON response
-    clean_result = [None if np.isnan(x) else x for x in result]
+    values = calculate_chop(candles=candles, period=data.period, scalar=data.scalar, drift=data.drift, sequential=data.sequential)
 
     return {
         "indicator": "chop",
@@ -837,18 +888,19 @@ async def get_chop(data: CHOPRequest):
         "period": data.period,
         "scalar": data.scalar,
         "drift": data.drift,
-        "values": clean_result
+        "values": values
     }
 
 
 # Pearson's Correlation Coefficient
 @app.post("/correl")
 async def get_correl(data: IndicatorRequest):
+    """Pearson's Correlation Coefficient"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    result = calculate_correl(candles, data.period)
-    values = [round(float(v), 6) if not np.isnan(v) else None for v in result]
+    values = calculate_correl(candles=candles, period=data.period, sequential=data.sequential)
 
     return {
+        "indicator": "correl",
         "symbol": data.symbol.upper(),
         "interval": data.interval,
         "period": data.period,
@@ -859,8 +911,14 @@ async def get_correl(data: IndicatorRequest):
 # Detrended Price Oscillator (DPO)
 @app.post("/dpo")
 async def get_dpo(data: IndicatorWithSourceRequest):
+    """Detrended Price Oscillator (DPO)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    dpo_values = calculate_dpo(candles, data.period, data.source_type)
+    values = calculate_dpo(
+        candles=candles,
+        period=data.period,
+        source_type=data.source_type,
+        sequential=data.sequential 
+    )
 
     return {
         "indicator": "dpo",
@@ -868,7 +926,7 @@ async def get_dpo(data: IndicatorWithSourceRequest):
         "interval": data.interval,
         "period": data.period,
         "source_type": data.source_type,
-        "values": dpo_values
+        "values": values
     }
 
 
@@ -876,24 +934,25 @@ async def get_dpo(data: IndicatorWithSourceRequest):
 # Directional Movement (dm)
 @app.post("/dm")
 async def get_dm(data: IndicatorRequest):
+    """Directional Movement"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    dm_values = calculate_dm(candles, data.period)
+    values = calculate_dm(candles=candles, period=data.period, sequential=data.sequential)
 
     return {
         "indicator": "dm",
         "symbol": data.symbol.upper(),
         "interval": data.interval,
         "period": data.period,
-        "plus": dm_values["plus"],
-        "minus": dm_values["minus"]
+        "values": values
     }
 
 
 #  Directional Movement Index (DMI) 
 @app.post("/dx")
 async def get_dx(data: DXRequest):
+    """ Directional Movement Index (DMI)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    dx_values = calculate_dx(candles, data.di_length, data.adx_smoothing)
+    values = calculate_dx(candles=candles, di_length=data.di_length, adx_smoothing=data.adx_smoothing, sequential=data.sequential)
 
     return {
         "indicator": "dx",
@@ -901,9 +960,7 @@ async def get_dx(data: DXRequest):
         "interval": data.interval,
         "di_length": data.di_length,
         "adx_smoothing": data.adx_smoothing,
-        "adx": dx_values["adx"],
-        "plusDI": dx_values["plusDI"],
-        "minusDI": dx_values["minusDI"]
+        "values": values
     }
 
 
@@ -912,7 +969,12 @@ async def get_dx(data: DXRequest):
 @app.post("/dema")
 async def get_dema(data: IndicatorWithSourceRequest):
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    dema_values = dema(candles, data.period, data.source_type, sequential=True)
+    values = calculate_dema(
+        candles=candles,
+        period=data.period,
+        source_type=data.source_type,
+        sequential=data.sequential  
+    )
 
     return {
         "indicator": "dema",
@@ -920,7 +982,7 @@ async def get_dema(data: IndicatorWithSourceRequest):
         "interval": data.interval,
         "period": data.period,
         "source_type": data.source_type,
-        "values": dema_values.tolist()
+        "values": values
     }
 
 
@@ -928,54 +990,54 @@ async def get_dema(data: IndicatorWithSourceRequest):
 #  Fisher Transform (fisher)
 @app.post("/fisher")
 async def get_fisher(data: IndicatorRequest):
+    """Fisher Transform"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    fisher_values = calculate_fisher(candles, data.period)
+    values = calculate_fisher(candles=candles, period=data.period, sequential=data.sequential)
+
     return {
         "indicator": "fisher",
         "symbol": data.symbol.upper(),
         "interval": data.interval,
         "period": data.period,
-        "values": fisher_values
+        "values": values
     }
 
 
 # ichimoku_cloud
 @app.post("/ichimoku-cloud")
 async def get_ichimoku_cloud(data: IchimokuCloudRequest):
+    """ichimoku_cloud"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    result = calculate_ichimoku_cloud(
+    values = calculate_ichimoku_cloud(
         candles,
         conversion_line_period=data.conversion_line_period,
         base_line_period=data.base_line_period,
         lagging_line_period=data.lagging_line_period,
-        displacement=data.displacement
+        displacement=data.displacement,
+        sequential=data.sequential
     )
-
     return {
         "indicator": "ichimoku_cloud",
         "symbol": data.symbol.upper(),
         "interval": data.interval,
-        "conversion_line": result.conversion_line.tolist() if hasattr(result.conversion_line, "tolist") else result.conversion_line,
-        "base_line": result.base_line.tolist() if hasattr(result.base_line, "tolist") else result.base_line,
-        "span_a": result.span_a.tolist() if hasattr(result.span_a, "tolist") else result.span_a,
-        "span_b": result.span_b.tolist() if hasattr(result.span_b, "tolist") else result.span_b,
+        "values": values
     }
 
 
 
-# Directional Indicator (di)
+# Directional Indicator (di) 
 @app.post("/di")
 async def get_di(data: IndicatorRequest):
+    """Directional Indicator"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    di_values = calculate_di(candles, data.period)
+    values = calculate_di(candles=candles, period=data.period, sequential=data.sequential)
 
     return {
         "indicator": "di",
         "symbol": data.symbol.upper(),
         "interval": data.interval,
         "period": data.period,
-        "plus": di_values["plus"],
-        "minus": di_values["minus"]
+        "values": values
     }
 
 
@@ -983,8 +1045,9 @@ async def get_di(data: IndicatorRequest):
 #Ease of Movement (emv)
 @app.post("/emv")
 async def get_emv(data: IndicatorWithLengthAndDivRequest):
+    """Ease of Movement"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    emv_values = calculate_emv(candles, data.length, data.div)
+    values = calculate_emv(candles=candles, length=data.length, div=data.div, sequential=data.sequential)
     
     return {
         "indicator": "emv",
@@ -992,7 +1055,7 @@ async def get_emv(data: IndicatorWithLengthAndDivRequest):
         "interval": data.interval,
         "length": data.length,
         "div": data.div,
-        "values": emv_values
+        "values": values
     }
 
 
@@ -1000,9 +1063,10 @@ async def get_emv(data: IndicatorWithLengthAndDivRequest):
 # Keltner Channels
 @app.post("/keltner")
 async def get_keltner(data: KeltnerRequest):
+    """Keltner Channels"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
-    keltner_values = calculate_keltner(
+    values = calculate_keltner(
         candles,
         period=data.period,
         multiplier=data.multiplier,
@@ -1010,15 +1074,15 @@ async def get_keltner(data: KeltnerRequest):
         source_type=data.source_type,
         sequential=data.sequential
     )
-
+ 
     return {
         "indicator": "keltner",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "interval": data.interval,
         "period": data.period,
         "multiplier": data.multiplier,
         "matype": data.matype,
-        "values": keltner_values
+        "values": values
     }
 
 
@@ -1026,6 +1090,7 @@ async def get_keltner(data: KeltnerRequest):
 # KST (Know Sure Thing)
 @app.post("/kst")
 async def get_kst(data: KSTRequest):
+    """Know Sure Thing (KST)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
     result = calculate_kst(
@@ -1039,7 +1104,8 @@ async def get_kst(data: KSTRequest):
         roc_period3=data.roc_period3,
         roc_period4=data.roc_period4,
         signal_period=data.signal_period,
-        source_type=data.source_type
+        source_type=data.source_type,
+        sequential=data.sequential
     )
 
     return {
@@ -1059,6 +1125,7 @@ async def get_kst(data: KSTRequest):
 # Mass Index 
 @app.post("/mass")
 async def get_mass(data: IndicatorRequest):
+    """Mass Index"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_mass(candles, data.period, sequential=True)
 
@@ -1075,6 +1142,7 @@ async def get_mass(data: IndicatorRequest):
 # McGinley Dynamic
 @app.post("/mcginley")
 async def get_mcginley(data: McGinleyRequest):
+    """McGinley Dynamic"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_mcginley(
         candles=candles,
@@ -1099,6 +1167,7 @@ async def get_mcginley(data: McGinleyRequest):
 # Moving Average (MA)
 @app.post("/ma")
 async def get_ma(data: MARequest):
+    """Moving Averages"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_ma(
         candles=candles,
@@ -1123,12 +1192,13 @@ async def get_ma(data: MARequest):
 # Mean Absolute Deviation
 @app.post("/mean_ad")
 async def get_mean_ad(data: IndicatorWithSourceRequest):
+    """Mean Absolute Deviation"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_mean_ad(
         candles=candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True  # fixed to always return array
+        sequential=data.sequential  
     )
 
     return {
@@ -1145,12 +1215,13 @@ async def get_mean_ad(data: IndicatorWithSourceRequest):
 # Median Absolute Deviation 
 @app.post("/median_ad")
 async def get_median_ad(data: IndicatorWithSourceRequest):
+    """Median Absolute Deviation"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_median_ad(
         candles=candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True  # always return array
+        sequential=data.sequential
     )
 
     return {
@@ -1167,10 +1238,11 @@ async def get_median_ad(data: IndicatorWithSourceRequest):
 # Median Price (MEDPRICE)
 @app.post("/medprice")
 async def get_medprice(data: NoPeriodIndicatorRequest):
+    """Median Price (MEDPRICE)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_medprice(
         candles=candles,
-        sequential=True
+        sequential=data.sequential
     )
 
     return {
@@ -1185,12 +1257,13 @@ async def get_medprice(data: NoPeriodIndicatorRequest):
 # Momentum (MOM) 
 @app.post("/mom")
 async def get_mom(data: IndicatorWithSourceRequest):
+    """Momentum (MOM)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_mom(
         candles=candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True  # always array
+        sequential=data.sequential
     )
 
     return {
@@ -1207,12 +1280,13 @@ async def get_mom(data: IndicatorWithSourceRequest):
 # Weighted Moving Average (WMA)
 @app.post("/wma")
 async def get_wma(data: IndicatorWithSourceRequest):
+    """Weighted Moving Average (WMA)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_wma(
         candles=candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True
+        sequential=data.sequential
     )
 
     return {
@@ -1229,6 +1303,7 @@ async def get_wma(data: IndicatorWithSourceRequest):
 # Parabolic SAR (SAR)
 @app.post("/sar")
 async def get_sar(data: SARRequest):
+    """Parabolic SAR (SAR)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_sar(
         candles=candles,
@@ -1251,6 +1326,7 @@ async def get_sar(data: SARRequest):
 # Pivot Points
 @app.post("/pivot")
 async def get_pivot(data: PivotRequest):
+    """Pivot Points"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_pivot(
         candles=candles,
@@ -1271,6 +1347,7 @@ async def get_pivot(data: PivotRequest):
 # Ultimate Oscillator (ULTOSC)
 @app.post("/ultosc")
 async def get_ultosc(data: ULTOSCRequest):
+    """Ultimate Oscillator (ULTOSC)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_ultosc(
         candles=candles,
@@ -1295,6 +1372,7 @@ async def get_ultosc(data: ULTOSCRequest):
 # Volume Price Trend (VPT)
 @app.post("/vpt")
 async def get_vpt(data: VPTRequest):
+    """Volume Price Trend (VPT)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_vpt(
         candles=candles,
@@ -1315,12 +1393,13 @@ async def get_vpt(data: VPTRequest):
 # Rate of Change Percentage (ROCP)
 @app.post("/rocp")
 async def get_rocp(data: IndicatorWithSourceRequest):
+    """ Rate of Change Percentage (ROCP)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_rocp(
         candles=candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True
+        sequential=data.sequential
     )
 
     return {
@@ -1337,12 +1416,13 @@ async def get_rocp(data: IndicatorWithSourceRequest):
 # Rate of Change Ratio (ROCR)
 @app.post("/rocr")
 async def get_rocr(data: IndicatorWithSourceRequest):
+    """Rate of Change Ratio (ROCR)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_rocr(
         candles=candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True
+        sequential=data.sequential
     )
 
     return {
@@ -1359,12 +1439,13 @@ async def get_rocr(data: IndicatorWithSourceRequest):
 #  Rate of Change Ratio 100
 @app.post("/rocr100")
 async def get_rocr100(data: IndicatorWithSourceRequest):
+    """Rate of Change Ratio 100"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_rocr100(
         candles=candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True
+        sequential=data.sequential
     )
 
     return {
@@ -1381,6 +1462,7 @@ async def get_rocr100(data: IndicatorWithSourceRequest):
 # Relative Volatility Index (RVI)
 @app.post("/rvi")
 async def get_rvi(data: RVIRequest):
+    """Relative Volatility Index (RVI)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_rvi(
         candles=candles,
@@ -1409,12 +1491,13 @@ async def get_rvi(data: RVIRequest):
 # Smoothed Moving Average (SMMA)
 @app.post("/smma")
 async def get_smma(data: IndicatorWithSourceRequest):
+    """Smoothed Moving Average (SMMA)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_smma(
         candles=candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True
+        sequential=data.sequential
     )
 
     return {
@@ -1431,6 +1514,7 @@ async def get_smma(data: IndicatorWithSourceRequest):
 # Stochastic Oscillator
 @app.post("/stoch")
 async def get_stoch(data: StochRequest):
+    """Stochastic Oscillator"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_stoch(
         candles=candles,
@@ -1459,13 +1543,14 @@ async def get_stoch(data: StochRequest):
 # True Strength Index (TSI)
 @app.post("/tsi")
 async def get_tsi(data: TSIRequest):
+    """True Strength Index (TSI)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     tsi_values = calculate_tsi(
         candles=candles,
         long_period=data.long_period,
         short_period=data.short_period,
         source_type=data.source_type,
-        sequential=True
+        sequential=data.sequential
     )
     return {
         "indicator": "tsi",
@@ -1482,12 +1567,13 @@ async def get_tsi(data: TSIRequest):
 # TTM Trend indicator
 @app.post("/ttm_trend")
 async def get_ttm_trend(data: IndicatorWithSourceRequest):
+    """TTM Trend indicator"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_ttm_trend(
         candles=candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True
+        sequential=data.sequential
     )
     return {
         "indicator": "ttm_trend",
@@ -1503,13 +1589,14 @@ async def get_ttm_trend(data: IndicatorWithSourceRequest):
 # Triple Exponential Moving Average (TEMA) 
 @app.post("/tema")
 async def get_tema(data: IndicatorWithSourceRequest):
+    """Triple Exponential Moving Average (TEMA)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
     values = calculate_tema(
         candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True
+        sequential=data.sequential
     )
 
     return {
@@ -1526,12 +1613,13 @@ async def get_tema(data: IndicatorWithSourceRequest):
 # TRIX - 1-day Rate-Of-Change (ROC) of a Triple Smooth EMA
 @app.post("/trix")
 async def get_trix(data: IndicatorWithSourceRequest):
+    """TRIX - 1-day Rate-Of-Change (ROC)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_trix(
-        candles,
+        candles=candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True  # or False depending on use case
+        sequential=data.sequential
     )
     return {
         "indicator": "trix",
@@ -1547,12 +1635,13 @@ async def get_trix(data: IndicatorWithSourceRequest):
 # Volume
 @app.post("/volume")
 async def get_volume(data: IndicatorRequest):
+    """Volume"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    values = calculate_volume(candles, data.period, sequential=True)
+    values = calculate_volume(candles=candles, period=data.period, sequential=data.sequential)
 
     return {
         "indicator": "volume",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "interval": data.interval,
         "period": data.period,
         "values": values
@@ -1560,20 +1649,21 @@ async def get_volume(data: IndicatorRequest):
 
 
 
-# ariable Power Weighted Moving Average (VPWMA)
+# Variable Power Weighted Moving Average (VPWMA)
 @app.post("/vpwma")
 async def get_vpwma(data: VPWMARequest):
+    """Variable Power Weighted Moving Average (VPWMA)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     values = calculate_vpwma(
-        candles,
+        candles=candles,
         period=data.period,
         power=data.power,
         source_type=data.source_type,
-        sequential=False
+        sequential=data.sequential
     )
     return {
         "indicator": "vpwma",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "interval": data.interval,
         "period": data.period,
         "power": data.power,
@@ -1586,12 +1676,13 @@ async def get_vpwma(data: VPWMARequest):
 # Volume Weighted Moving Average (VWMA)
 @app.post("/vwma")
 async def get_vwma(data: IndicatorWithSourceRequest):
+    """Volume Weighted Moving Average (VWMA)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    vwma_values = calculate_vwma(
+    values = calculate_vwma(
         candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True
+        sequential=data.sequential
     )
 
     return {
@@ -1600,7 +1691,7 @@ async def get_vwma(data: IndicatorWithSourceRequest):
         "interval": data.interval,
         "period": data.period,
         "source_type": data.source_type,
-        "values": vwma_values
+        "values": values
     }
 
 
@@ -1608,38 +1699,40 @@ async def get_vwma(data: IndicatorWithSourceRequest):
 # Alligator
 @app.post("/alligator")
 async def get_alligator(data: SourceOnlyRequest):
+    """Alligator"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-
-    result = calculate_alligator(
+    values = calculate_alligator(
         candles,
-        source_type=data.source_type
+        source_type=data.source_type,
+        sequential=data.sequential
     )
 
     return {
         "indicator": "alligator",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "interval": data.interval,
         "source_type": data.source_type,
-        "values": result
+        "values": values
     }
 
 
 # Arnaud Legoux Moving Average (ALMA)
 @app.post("/alma")
 async def get_alma(data: ALMARequest):
+    """Arnaud Legoux Moving Average (ALMA)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-
-    result = calculate_alma(
+    values = calculate_alma(
         candles,
         period=data.period,
         sigma=data.sigma,
         distribution_offset=data.distribution_offset,
-        source_type=data.source_type
+        source_type=data.source_type,
+        sequential=data.sequential
     )
 
     return {
         "indicator": "alma",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "interval": data.interval,
         "params": {
             "period": data.period,
@@ -1647,7 +1740,7 @@ async def get_alma(data: ALMARequest):
             "distribution_offset": data.distribution_offset,
             "source_type": data.source_type
         },
-        "values": result
+        "values": values
     }
 
 
@@ -1655,22 +1748,24 @@ async def get_alma(data: ALMARequest):
 # beta
 @app.post("/beta")
 async def get_beta(data: BetaRequest):
+    """Beta"""
     main_candles = await fetch_candles(data.symbol, data.interval, data.limit)
     benchmark_candles = await fetch_candles(data.benchmark_symbol, data.interval, data.limit)
 
-    result = calculate_beta(
+    values = calculate_beta(
         main_candles,
         benchmark_candles,
-        period=data.period
+        period=data.period,
+        sequential=data.sequential
     )
 
     return {
         "indicator": "beta",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "benchmark_symbol": data.benchmark_symbol,
         "interval": data.interval,
         "period": data.period,
-        "values": result
+        "values": values
     }
 
 
@@ -1678,15 +1773,16 @@ async def get_beta(data: BetaRequest):
 # Average Price
 @app.post("/avgprice")
 async def get_avgprice(data: NoPeriodIndicatorRequest):
+    """Average Price"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
-    result = calculate_avgprice(candles)
+    values = calculate_avgprice(candles=candles, sequential=data.sequential)
 
     return {
         "indicator": "avgprice",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "interval": data.interval,
-        "values": result
+        "values": values
     }
 
 
@@ -1694,21 +1790,23 @@ async def get_avgprice(data: NoPeriodIndicatorRequest):
 # Hull Moving Average (HMA)
 @app.post("/hma")
 async def get_hma(data: IndicatorWithSourceRequest):
+    """Hull Moving Average (HMA)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
-    result = calculate_hma(
-        candles,
+    values = calculate_hma(
+        candles=candles,
         period=data.period,
-        source_type=data.source_type
+        source_type=data.source_type,
+        sequential=data.sequential
     )
 
     return {
         "indicator": "hma",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "interval": data.interval,
         "period": data.period,
         "source_type": data.source_type,
-        "values": result
+        "values": values
     }
     
 
@@ -1716,164 +1814,180 @@ async def get_hma(data: IndicatorWithSourceRequest):
 #  KDJ Oscillator
 @app.post("/kdj")
 async def get_kdj(data: KDJRequest):
+    """KDJ Oscillator"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
-    result = calculate_kdj(
-        candles,
+    values = calculate_kdj(
+        candles=candles,
         fastk_period=data.fastk_period,
         slowk_period=data.slowk_period,
         slowk_matype=data.slowk_matype,
         slowd_period=data.slowd_period,
-        slowd_matype=data.slowd_matype
+        slowd_matype=data.slowd_matype,
+        sequential=data.sequential
     )
 
     return {
         "indicator": "kdj",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "interval": data.interval,
-        "values": result
+        "values": values
     }
 
 
 # Klinger Volume Oscillator (KVO)
 @app.post("/kvo")
 async def get_kvo(data: KVORequest):
+    """Klinger Volume Oscillator (KVO)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
-    result = calculate_kvo(
-        candles,
+    values = calculate_kvo(
+        candles=candles,
         short_period=data.short_period,
-        long_period=data.long_period
+        long_period=data.long_period,
+        sequential=data.sequential
     )
 
     return {
         "indicator": "kvo",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "interval": data.interval,
         "short_period": data.short_period,
         "long_period": data.long_period,
-        "values": result
+        "values": values
     }
 
 
 # Linear Regression indicator (LINEARREG)
 @app.post("/linearreg")
 async def get_linearreg(data: IndicatorWithSourceRequest):
+    """Linear Regression indicator (LINEARREG)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
-    result = calculate_linearreg(
-        candles,
+    values = calculate_linearreg(
+        candles=candles,
         period=data.period,
-        source_type=data.source_type
+        source_type=data.source_type,
+        sequential=data.sequential
     )
 
     return {
         "indicator": "linearreg",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "interval": data.interval,
         "period": data.period,
         "source_type": data.source_type,
-        "values": result
+        "values": values
     }
 
 
 # MWDX Average
 @app.post("/mwdx")
 async def get_mwdx(data: MWDXRequest):
+    """MWDX Average"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
-    result = calculate_mwdx(
-        candles,
+    values = calculate_mwdx(
+        candles=candles,
         factor=data.factor,
-        source_type=data.source_type
+        source_type=data.source_type,
+        sequential=data.sequential
     )
 
     return {
         "indicator": "mwdx",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "interval": data.interval,
         "factor": data.factor,
         "source_type": data.source_type,
-        "values": result
+        "values": values
     }
 
 # Negative Volume Index (NVI)
 @app.post("/nvi")
 async def get_nvi(data: NVIRequest):
+    """Negative Volume Index (NVI)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
-    result = calculate_nvi(
-        candles,
-        source_type=data.source_type
+    values = calculate_nvi(
+        candles=candles,
+        source_type=data.source_type,
+        sequential=data.sequential
     )
 
     return {
         "indicator": "nvi",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "interval": data.interval,
         "source_type": data.source_type,
-        "values": result
+        "values": values
     }
     
     
 # Positive Volume Index (PVI) 
 @app.post("/pvi")
 async def get_pvi(data: PVIRequest):
+    """Positive Volume Index (PVI)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
-    result = calculate_pvi(
-        candles,
-        source_type=data.source_type
+    values = calculate_pvi(
+        candles=candles,
+        source_type=data.source_type,
+        sequential=data.sequential
     )
 
     return {
         "indicator": "pvi",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "interval": data.interval,
         "source_type": data.source_type,
-        "values": result
+        "values": values
     }
 
 
 # Ehlers Decycler Oscillator 
 @app.post("/dec_osc")
 async def get_dec_osc(data: DecOscRequest):
+    """Ehlers Decycler Oscillator"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
-    result = calculate_dec_osc(
-        candles,
+    values = calculate_dec_osc(
+        candles=candles,
         hp_period=data.hp_period,
         k=data.k,
-        source_type=data.source_type
+        source_type=data.source_type,
+        sequential=data.sequential
     )
 
     return {
         "indicator": "dec_osc",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "interval": data.interval,
         "hp_period": data.hp_period,
         "k": data.k,
         "source_type": data.source_type,
-        "values": result
+        "values": values
     }
 
 
 # safezonestop
 @app.post("/safezonestop")
 async def get_safezonestop(data: SafeZoneStopRequest):
+    """safezonestop"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
-    result = calculate_safezonestop(
-        candles,
+    values = calculate_safezonestop(
+        candles=candles,
         period=data.period,
         mult=data.mult,
         max_lookback=data.max_lookback,
-        direction=data.direction
+        direction=data.direction,
+        sequential=data.sequential
     )
 
     return {
         "indicator": "safezonestop",
-        "symbol": data.symbol,
+        "symbol": data.symbol.upper(),
         "interval": data.interval,
         "params": {
             "period": data.period,
@@ -1881,7 +1995,7 @@ async def get_safezonestop(data: SafeZoneStopRequest):
             "max_lookback": data.max_lookback,
             "direction": data.direction
         },
-        "values": result
+        "values": values
     }
 
 
@@ -1889,6 +2003,7 @@ async def get_safezonestop(data: SafeZoneStopRequest):
 # support_resistance_with_breaks
 @app.post("/support_resistance_with_breaks")
 async def get_support_resistance_with_breaks(data: SupportResistanceBreaksRequest):
+    """support_resistance_with_breaks"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
 
     result = calculate_support_resistance_with_breaks(
@@ -1915,16 +2030,15 @@ async def get_support_resistance_with_breaks(data: SupportResistanceBreaksReques
 # Time Series Forecast (TSF)
 @app.post("/tsf")
 async def get_tsf(data: IndicatorWithSourceRequest):
+    """Time Series Forecast (TSF)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    tsf_values = tsf(
-        candles,
+    values = calculate_tsf(
+        candles=candles,
         period=data.period,
         source_type=data.source_type,
-        sequential=True
+        sequential=data.sequential
     )
 
-    # Convert np.nan to None for JSON serialization
-    tsf_serializable = [None if np.isnan(x) else float(x) for x in tsf_values]
 
     return {
         "indicator": "tsf",
@@ -1932,7 +2046,7 @@ async def get_tsf(data: IndicatorWithSourceRequest):
         "interval": data.interval,
         "period": data.period,
         "source_type": data.source_type,
-        "values": tsf_serializable
+        "values": values
     }
 
 
@@ -1940,9 +2054,10 @@ async def get_tsf(data: IndicatorWithSourceRequest):
 # ttm_squeeze (TTM Squeeze)
 @app.post("/ttm_squeeze")
 async def get_ttm_squeeze(data: TTMSqueezeRequest):
+    """# ttm_squeeze (TTM Squeeze)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
     squeeze = calculate_ttm_squeeze(
-        candles,
+        candles=candles,
         length_ttms=data.length_ttms,
         bb_mult_ttms=data.bb_mult_ttms,
         kc_mult_low_ttms=data.kc_mult_low_ttms
@@ -1964,68 +2079,63 @@ async def get_ttm_squeeze(data: TTMSqueezeRequest):
 # Vortex Indicator (VI)
 @app.post("/vi")
 async def get_vi(data: IndicatorRequest):
+    """Vortex Indicator (VI)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    vi_result = calculate_vi(candles, period=data.period, sequential=True)
+    values = calculate_vi(candles=candles, period=data.period, sequential=data.sequential)
 
     return {
         "indicator": "vi",
         "symbol": data.symbol.upper(),
         "interval": data.interval,
         "period": data.period,
-        "values": vi_result
+        "values": values
     }
 
 
 #  Wavetrend indicator
 @app.post("/wt")
 async def get_wt(data: WTRequest):
+    """Wavetrend indicator"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    result = calculate_wt(
-        candles,
+    values = calculate_wt(
+        candles=candles,
         wtchannellen=data.wtchannellen,
         wtaveragelen=data.wtaveragelen,
         wtmalen=data.wtmalen,
         oblevel=data.oblevel,
         oslevel=data.oslevel,
-        source_type=data.source_type
+        source_type=data.source_type,
+        sequential=data.sequential
     )
-
-    def safe_array(arr):
-        return [None if isinstance(x, float) and (np.isnan(x) or np.isinf(x)) else x for x in arr.tolist()]
 
     return {
         "indicator": "wt",
         "symbol": data.symbol.upper(),
         "interval": data.interval,
-        "wt1": safe_array(result.wt1),
-        "wt2": safe_array(result.wt2),
-        "wtCrossUp": safe_array(result.wtCrossUp),
-        "wtCrossDown": safe_array(result.wtCrossDown),
-        "wtOversold": safe_array(result.wtOversold),
-        "wtOverbought": safe_array(result.wtOverbought),
-        "wtVwap": safe_array(result.wtVwap)
+        "values": values
     }
 
 
 # Stochastic RSI (SRSI)
 @app.post("/srsi")
 async def get_srsi(data: IndicatorWithSourceRequest):
+    """Stochastic RSI (SRSI)"""
     candles = await fetch_candles(data.symbol, data.interval, data.limit)
-    result = calculate_srsi(
-        candles,
+    values = calculate_srsi(
+        candles=candles,
         period=data.period,
-        source_type=data.source_type
+        source_type=data.source_type,
+        sequential=data.sequential
     )
 
-    def safe_array(arr):
-        return [None if isinstance(x, float) and (np.isnan(x) or np.isinf(x)) else x for x in arr.tolist()]
 
     return {
         "indicator": "srsi",
         "symbol": data.symbol.upper(),
-        "interval": data.interval,
-        "k": safe_array(result.k),
-        "d": safe_array(result.d)
+        "period": data.period,
+        "source_type": data.source_type,
+        "interval": data.interval, 
+        "values": values
     }
 
 

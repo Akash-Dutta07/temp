@@ -13,3 +13,6 @@ def calculate_mfi(candles: np.ndarray, period: int, sequential: bool):
         return [None if np.isnan(x) else float(x) for x in result]
     else:
         return float(result)
+  
+  
+  

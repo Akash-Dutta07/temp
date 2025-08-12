@@ -1,11 +1,15 @@
 import numpy as np
-from jesse.indicators.adx import adx
+from jesse.indicators.adx import adx as jesse_adx
 
-def calculate_adx(candles: np.ndarray, period: int) -> dict:
-    adx_values = adx(candles, period=period, sequential=True)
-    clean_adx = adx_values[~np.isnan(adx_values)]
+def calculate_adx(candles: np.ndarray, period: int, sequential: bool):
+    result = jesse_adx(
+        candles=candles,
+        period=period,
+        sequential=sequential
+    )
 
-    return {
-        "indicator": "adx",
-        "values": clean_adx.tolist()
-    }
+    if sequential:
+        return [None if np.isnan(x) else float(x) for x in result]
+    else:
+        return float(result)
+

@@ -10,3 +10,5 @@ def calculate_obv(candles: np.ndarray, sequential: bool):
         return [None if np.isnan(x) else float(x) for x in result]
     else:
         return float(result)
+ 
+ 

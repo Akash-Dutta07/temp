@@ -13,3 +13,4 @@ def calculate_sma(candles: np.ndarray, period: int, source_type: str, sequential
         return [None if np.isnan(x) else float(x) for x in result]
     else:
         return float(result)
+   

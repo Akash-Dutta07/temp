@@ -1,12 +1,12 @@
 from jesse.indicators.kvo import kvo
 import numpy as np
 
-def calculate_kvo(candles, short_period: int, long_period: int):
+def calculate_kvo(candles: np.ndarray, short_period: int, long_period: int, sequential: bool):
     values = kvo(
-        candles,
+        candles=candles,
         short_period=short_period,
         long_period=long_period,
-        sequential=True
+        sequential=sequential
     )
 
     return np.where(np.isnan(values), None, values).tolist()

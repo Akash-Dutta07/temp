@@ -1,22 +1,26 @@
 import numpy as np
-from jesse.indicators import dx
-from jesse.helpers import slice_candles
+from jesse.indicators.dx import dx as jesse_dx
 
-def calculate_dx(
-    candles: np.ndarray,
-    di_length: int = 14,
-    adx_smoothing: int = 14
-) -> dict:
-    sliced = slice_candles(candles, di_length + adx_smoothing + 50)
-    dx_result = dx(
-        sliced,
+def calculate_dx(candles: np.ndarray, di_length: int, adx_smoothing: int, sequential: bool):
+    adx, plusDI, minusDI = jesse_dx(
+        candles=candles,
         di_length=di_length,
         adx_smoothing=adx_smoothing,
-        sequential=True
+        sequential=sequential
     )
 
-    return {
-        "adx": [round(float(v), 6) if not np.isnan(v) else None for v in dx_result.adx],
-        "plusDI": [round(float(v), 6) if not np.isnan(v) else None for v in dx_result.plusDI],
-        "minusDI": [round(float(v), 6) if not np.isnan(v) else None for v in dx_result.minusDI],
-    }
+    if sequential:
+        return {
+            "adx": [None if np.isnan(x) else float(x) for x in adx],
+            "plusDI": [None if np.isnan(x) else float(x) for x in plusDI],
+            "minusDI": [None if np.isnan(x) else float(x) for x in minusDI]
+        }
+    else:
+        return {
+            "adx": float(adx),
+            "plusDI": float(plusDI),
+            "minusDI": float(minusDI)
+        }
+   
+
+

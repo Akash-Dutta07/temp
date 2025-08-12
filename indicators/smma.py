@@ -13,3 +13,4 @@ def calculate_smma(candles: np.ndarray, period: int, source_type: str, sequentia
         return [None if np.isnan(x) else float(x) for x in result]
     else:
         return float(result)
+ 

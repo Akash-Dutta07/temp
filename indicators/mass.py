@@ -8,5 +8,7 @@ def calculate_mass(candles: np.ndarray, period: int, sequential: bool):
         sequential=sequential
     )
     if sequential:
-        return result.tolist()
-    return float(result)
+        # Convert np.ndarray to list and replace NaN with None
+        return [None if np.isnan(x) else float(x) for x in result]
+    else:
+        return float(result)

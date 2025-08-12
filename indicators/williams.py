@@ -1,11 +1,14 @@
 import numpy as np
-from jesse.indicators.willr import willr
+from jesse.indicators.willr import willr as jesse_willr
 
-def calculate_williams_r(candles: np.ndarray, period: int) -> dict:
-    wr_values = willr(candles, period=period, sequential=True)
-    clean_wr = wr_values[~np.isnan(wr_values)]
+def calculate_williams_r(candles: np.ndarray, period: int, sequential: bool):
+    result = jesse_willr(
+        candles=candles,
+        period=period,
+        sequential=sequential
+    )
 
-    return {
-        "indicator": "williams_r",
-        "values": clean_wr.tolist()
-    }
+    if sequential:
+        return [None if np.isnan(x) else float(x) for x in result]
+    else:
+        return float(result)

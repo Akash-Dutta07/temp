@@ -16,3 +16,5 @@ def calculate_ppo(candles: np.ndarray, fast_period: int, slow_period: int, matyp
         return [None if np.isnan(x) else float(x) for x in result]
     else:
         return float(result)
+
+

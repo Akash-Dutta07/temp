@@ -1,10 +1,16 @@
 import numpy as np
 from jesse.indicators.vwma import vwma as jesse_vwma
-from jesse.helpers import get_candle_source
-from typing import Union
 
-def calculate_vwma(candles: np.ndarray, period: int, source_type: str, sequential: bool) -> list:
-    source = get_candle_source(candles, source_type)
-    result = jesse_vwma(candles, period=period, source_type=source_type, sequential=True)
+def calculate_vwma(candles: np.ndarray, period: int, source_type: str, sequential: bool):
+    result = jesse_vwma(
+        candles=candles,
+        period=period,
+        source_type=source_type,
+        sequential=sequential
+    )
 
-    return [None if np.isnan(x) else float(x) for x in result]
+    if sequential:
+        return [None if np.isnan(x) else float(x) for x in result]
+    else:
+        return float(result)
+ 

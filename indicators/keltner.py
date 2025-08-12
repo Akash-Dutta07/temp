@@ -1,7 +1,7 @@
 import numpy as np
 from jesse.indicators.keltner import keltner as jesse_keltner
 
-def calculate_keltner(candles: np.ndarray, period: int = 20, multiplier: float = 2, matype: int = 1, source_type: str = "close", sequential: bool = True):
+def calculate_keltner(candles: np.ndarray, period: int, multiplier: float, matype: int, source_type: str, sequential: bool):
     kc = jesse_keltner(
         candles,
         period=period,
@@ -12,13 +12,13 @@ def calculate_keltner(candles: np.ndarray, period: int = 20, multiplier: float =
     )
     if sequential:
         return {
-            "upperband": [round(float(v), 6) if not np.isnan(v) else None for v in kc.upperband],
-            "middleband": [round(float(v), 6) if not np.isnan(v) else None for v in kc.middleband],
-            "lowerband": [round(float(v), 6) if not np.isnan(v) else None for v in kc.lowerband]
+            "upperband": [float(v) if not np.isnan(v) else None for v in kc.upperband],
+            "middleband": [float(v) if not np.isnan(v) else None for v in kc.middleband],
+            "lowerband": [float(v) if not np.isnan(v) else None for v in kc.lowerband]
         }
     else:
         return {
-            "upperband": round(float(kc.upperband), 6),
-            "middleband": round(float(kc.middleband), 6),
-            "lowerband": round(float(kc.lowerband), 6)
+            "upperband": float(kc.upperband),
+            "middleband": float(kc.middleband),
+            "lowerband": float(kc.lowerband)
         }

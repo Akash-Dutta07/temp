@@ -6,18 +6,21 @@ class IndicatorRequest(BaseModel):
     interval: str   # e.g., "5m", "1h"
     period: int     # e.g., 20
     limit: int = 100  # default number of candles
-    
+    sequential: Optional[bool] = True
+
 class IndicatorWithSourceRequest(BaseModel):
     symbol: str                  # e.g., "BTCUSDT"
     interval: str                # e.g., "5m", "1h"
     period: int                  # e.g., 20
     limit: int = 100             # default number of candles
     source_type: Optional[str] = "close"
+    sequential: Optional[bool] = True 
    
 class NoPeriodIndicatorRequest(BaseModel):
     symbol: str          # e.g., "BTCUSDT"
     interval: str        # e.g., "1h"
     limit: int = 100     # default candle limit
+    sequential: Optional[bool] = True
 
 class ADOSCRequest(BaseModel):
     symbol: str
@@ -25,6 +28,7 @@ class ADOSCRequest(BaseModel):
     fast_period: int = 3
     slow_period: int = 10
     limit: int = 100
+    sequential: Optional[bool] = True
 
 class CKSPRequest(BaseModel):
     symbol: str
@@ -33,7 +37,7 @@ class CKSPRequest(BaseModel):
     x: float = 1.0
     q: int = 9
     limit: int = 100
-    sequential: bool = True
+    sequential: Optional[bool] = True
 
 class CHOPRequest(BaseModel):
     symbol: str
@@ -42,18 +46,20 @@ class CHOPRequest(BaseModel):
     scalar: float = 100
     drift: int = 1
     limit: int = 100
+    sequential: Optional[bool] = True
 
 class DXRequest(BaseModel):
     symbol: str
     interval: str
-    di_length: int = 14
+    di_length: int = 14 
     adx_smoothing: int = 14
     limit: int = 100
+    sequential: Optional[bool] = True
 
 class KSTRequest(BaseModel):
     symbol: str
     interval: str
-    period: int
+    #period: int
     limit: int = 100
     source_type: Optional[str] = "close"
 
@@ -68,16 +74,17 @@ class KSTRequest(BaseModel):
     roc_period4: Optional[int] = 30
 
     signal_period: Optional[int] = 9
+    sequential: Optional[bool] = True
 
 class APORequest(BaseModel):
     symbol: str
     interval: str
-    period: Optional[int] = 14  # keep it to match structure, even if not used
     limit: int = 100
     source_type: Optional[str] = "close"
     fast_period: Optional[int] = 12
     slow_period: Optional[int] = 26
     matype: Optional[int] = 0
+    sequential: Optional[bool] = True
 
 class BollingerBandsWidthRequest(BaseModel):
     symbol: str
@@ -86,6 +93,8 @@ class BollingerBandsWidthRequest(BaseModel):
     mult: float = 2
     source_type: str = "close"
     limit: int
+    sequential: Optional[bool] = True
+    
 
 class BollingerBandsRequest(BaseModel):
     symbol: str
@@ -107,6 +116,7 @@ class IchimokuCloudRequest(BaseModel):
     lagging_line_period: int = 52
     displacement: int = 26
     limit: int
+    sequential: Optional[bool] = True
 
 class CFORequest(BaseModel):
     symbol: str
@@ -114,7 +124,8 @@ class CFORequest(BaseModel):
     period: Optional[int] = 14
     scalar: Optional[float] = 100
     source_type: Optional[str] = "close"
-    limit: Optional[int] = 100
+    limit: Optional[int] = 100 
+    sequential: Optional[bool] = True
 
 class CCRequest(BaseModel):
     symbol: str
@@ -124,6 +135,7 @@ class CCRequest(BaseModel):
     roc_long_period: int = 14
     limit: int = 100
     source_type: Optional[str] = "close"
+    sequential: Optional[bool] = True
 
 class IndicatorWithLengthAndDivRequest(BaseModel):
     symbol: str
@@ -131,13 +143,14 @@ class IndicatorWithLengthAndDivRequest(BaseModel):
     limit: int
     length: int = 14
     div: int = 10000
+    sequential: Optional[bool] = True
 
 class KeltnerRequest(BaseModel):
     symbol: str
     interval: str
     limit: int
     period: int = 20
-    multiplier: float = 2
+    multiplier: float = 2 
     matype: int = 1
     source_type: Literal["open", "high", "low", "close"] = "close"
     sequential: bool = True
@@ -256,6 +269,7 @@ class TSIRequest(BaseModel):
     short_period: int = 13
     source_type: str = "close"
     limit: int
+    sequential: Optional[bool] = True
 
 class VPWMARequest(BaseModel):
     symbol: str              # e.g., "BTCUSDT"
@@ -264,6 +278,7 @@ class VPWMARequest(BaseModel):
     power: float = 0.382
     source_type: str = "close"
     limit: int = 100         # default candle limit
+    sequential: Optional[bool] = True
 
 
 class SourceOnlyRequest(BaseModel):
@@ -271,7 +286,7 @@ class SourceOnlyRequest(BaseModel):
     interval: str              # e.g., "1h"
     limit: int = 100           # default candle limit
     source_type: Optional[str] = "close"
-
+    sequential: Optional[bool] = True
 
 class ALMARequest(BaseModel):
     symbol: str                      # e.g., "BTCUSDT"
@@ -281,6 +296,7 @@ class ALMARequest(BaseModel):
     distribution_offset: float = 0.85
     source_type: Optional[str] = "close"
     limit: int = 100
+    sequential: Optional[bool] = True
 
 
 class BetaRequest(BaseModel):
@@ -289,6 +305,7 @@ class BetaRequest(BaseModel):
     interval: str                   # e.g., "1h"
     period: int = 5
     limit: int = 100
+    sequential: Optional[bool] = True
 
 
 class KDJRequest(BaseModel):
@@ -386,6 +403,7 @@ class WTRequest(BaseModel):
     oblevel: int = 53
     oslevel: int = -53
     source_type: Optional[str] = "hlc3"
+    sequential: Optional[bool] = True
 
 
 class Volume24hRequest(BaseModel):

@@ -1,16 +1,19 @@
 import numpy as np
-from typing import Union
-from jesse.helpers import get_candle_source
-from jesse.indicators.ema import ema
+from jesse.indicators.dema import dema as jesse_dema
 
-def dema(candles: np.ndarray, period: int = 30, source_type: str = "close", sequential: bool = False) -> Union[float, np.ndarray]:
-    
-    src = get_candle_source(candles, source_type=source_type)
+def calculate_dema(candles: np.ndarray, period: int, source_type: str, sequential: bool):
+    result = jesse_dema(
+        candles=candles,
+        period=period,
+        source_type=source_type,
+        sequential=sequential
+    )
 
-    ema1 = ema(candles, period=period, source_type=source_type, sequential=True)
-    ema2 = ema1 if isinstance(ema1, np.ndarray) else np.array([ema1])
-    ema2 = ema(ema2, period=period, source_type="close", sequential=True)
+    if sequential:
+        return [None if np.isnan(x) else float(x) for x in result]
+    else:
+        return float(result)
 
-    dema_values = 2 * ema1 - ema2
 
-    return dema_values if sequential else dema_values[-1]
+
+   

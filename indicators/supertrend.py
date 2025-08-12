@@ -19,3 +19,4 @@ def calculate_supertrend(candles: np.ndarray, period: int, factor: float, sequen
             "trend": float(trend),
             "changed": int(changed)
         }
+   

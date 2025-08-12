@@ -4,7 +4,7 @@ import numpy as np
 
 def calculate_kst(candles: np.ndarray, sma_period1: int, sma_period2: int, sma_period3: int, sma_period4: int,
                   roc_period1: int, roc_period2: int, roc_period3: int, roc_period4: int,
-                  signal_period: int, source_type: str) -> dict:
+                  signal_period: int, source_type: str, sequential: bool) -> dict:
     kst_line, kst_signal = kst(
         candles,
         sma_period1=sma_period1,
@@ -17,7 +17,7 @@ def calculate_kst(candles: np.ndarray, sma_period1: int, sma_period2: int, sma_p
         roc_period4=roc_period4,
         signal_period=signal_period,
         source_type=source_type,
-        sequential=True
+        sequential=sequential
     )
     
     return {

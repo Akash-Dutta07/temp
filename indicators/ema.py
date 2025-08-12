@@ -1,12 +1,20 @@
 import numpy as np
 from jesse.indicators.ema import ema as jesse_ema
-from jesse.helpers import get_candle_source
 
-def calculate_ema(candles: np.ndarray, period: int = 5, source_type: str = "close", sequential: bool = False):
-    source = get_candle_source(candles, source_type)
-    result = jesse_ema(source, period, sequential=sequential)
+
+
+def calculate_ema(candles: np.ndarray, period: int, source_type: str, sequential: bool):
+    result = jesse_ema(
+        candles=candles,
+        period=period,
+        source_type=source_type,
+        sequential=sequential
+    )
 
     if sequential:
-        return [round(float(r), 6) if not np.isnan(r) else None for r in result]
+        return [None if np.isnan(x) else float(x) for x in result]
     else:
-        return round(float(result), 6) if not np.isnan(result) else None
+        return float(result)
+
+
+  

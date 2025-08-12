@@ -1,19 +1,32 @@
 import numpy as np
-from jesse.indicators import ao
-from jesse.helpers import slice_candles
+from jesse.indicators.ao import ao as jesse_ao
 
-def calculate_ao(candles: np.ndarray, sequential: bool = True) -> dict:
-    sliced = slice_candles(candles, 100)
-    result = ao(sliced, sequential=sequential)
+def calculate_ao(candles: np.ndarray, sequential: bool):
+    osc, change = jesse_ao(
+        candles=candles,
+        sequential=sequential
+    )
 
     if sequential:
-        osc = [round(float(v), 6) if not np.isnan(v) else None for v in result.osc]
-        change = [round(float(v), 6) if not np.isnan(v) else None for v in result.change]
+        return {
+            "osc": [None if np.isnan(x) else float(x) for x in osc],
+            "change": [None if np.isnan(x) else float(x) for x in change]
+        }
     else:
-        osc = None if np.isnan(result.osc) else round(float(result.osc), 6)
-        change = None if np.isnan(result.change) else round(float(result.change), 6)
+        return {
+            "osc": float(osc),
+            "change": float(change)
+        }
+   
 
-    return {
-        "osc": osc,
-        "change": change
-    }
+
+
+
+
+
+
+
+
+
+
+   
